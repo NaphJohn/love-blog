@@ -1,0 +1,74 @@
+---
+import SiteHeader from '../components/SiteHeader.astro';
+const base = import.meta.env.BASE_URL;
+const chapters = [
+  { slug: 'eq1-self-awareness', title: '（一）自我觉察与内在框架：先搞定自己，再谈关系', desc: '课题分离、依恋类型、三个日常可练的稳定动作。', date: '2026-08-01', free: true },
+  { slug: 'eq2-attraction', title: '（二）吸引力与初识：吸引力不是天赋，是可习得的行为模式', desc: '第一印象、可得性、投资与真诚。', date: '2026-08-01', free: true },
+  { slug: 'eq3-gender-differences', title: '（三）两性沟通差异：冲突不是谁对谁错，是规则不同', desc: '把"听"与"解决"的差异变成协作。', date: '2026-08-01', free: true },
+  { slug: 'eq4-nvc-crucial', title: '（四）非暴力沟通与关键对话：把冲突变成共识', desc: '观察-感受-需要-请求四步 + 关键对话。', date: '2026-08-01', free: false },
+  { slug: 'eq5-win-favor', title: '（五）赢得好感与深度连接：让人"跟你在一起变得更好"', desc: '具体赞美、适度脆弱、共同意义。', date: '2026-08-01', free: false },
+  { slug: 'eq6-influence-relationship', title: '（六）影响力与长期关系经营：用真诚被更好地接收', desc: '长期经营、非操控的影响力。', date: '2026-08-01', free: false },
+];
+const freeCount = chapters.filter((c) => c.free).length;
+---
+<SiteHeader lang="zh" altLang="en" altHref="/en/" />
+<main class="course">
+  <p class="kicker">✦ 情商 · 亲密关系 · 沟通</p>
+  <h1>心动解码 · 情商恋爱手记</h1>
+  <p class="sub">一套关于「搞定自己、被真诚看见、懂差异、化冲突、深连接、长经营」的情商恋爱实战笔记。前 3 节免费，后续欢迎请作者喝杯咖啡解锁。</p>
+  <p class="rule">前 <b>{freeCount}</b> 节免费阅读；后续章节欢迎<b>请作者喝杯咖啡 ☕️</b>（最低 ¥1，上不封顶）解锁全部内容。作者本人免付费。</p>
+
+  <ol class="ch-list">
+    {chapters.map((c, i) => (
+      <li class={c.free ? 'free' : 'paid'}>
+        <span class="no">{(i + 1).toString().padStart(2, '0')}</span>
+        <a href={`${base}blog/${c.slug}`} class="title">{c.title}</a>
+        {c.free ? <span class="tag free">免费</span> : <span class="tag paid">☕️ 请作者喝咖啡</span>}
+        <p class="desc">{c.desc}</p>
+      </li>
+    ))}
+  </ol>
+
+  <section class="engage">
+    <p class="engage-tip">觉得有用？欢迎请作者喝杯咖啡 ☕️</p>
+    <div class="reward">
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/alipay.png`} alt="支付宝收款码" loading="lazy" /></div>
+        <p>支付宝</p>
+      </div>
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/wechat.png`} alt="微信收款码" loading="lazy" /></div>
+        <p>微信</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot-note">⚠️ 本站内容仅供个人成长参考，不构成心理咨询或专业建议。</p>
+</main>
+
+<style is:global>
+  .course { max-width: 760px; margin: 0 auto; padding: 48px 16px 40px; }
+  .kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 8px; }
+  .course h1 { font-size: 32px; margin: 0 0 10px; letter-spacing: 1px; }
+  .sub { color: var(--muted); font-size: 16px; line-height: 1.8; margin: 0 0 8px; }
+  .rule { background: var(--code-bg); border: 1px dashed var(--border); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--fg); }
+  .rule b { color: var(--accent); }
+  .ch-list { list-style: none; padding: 0; margin: 22px 0 0; }
+  .ch-list li { padding: 16px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .ch-list li.paid { border-left: 4px solid #d63031; }
+  .ch-list li.free { border-left: 4px solid var(--accent); }
+  .no { color: var(--accent); font-weight: 800; font-size: 15px; }
+  .title { font-weight: 600; color: var(--fg); text-decoration: none; font-size: 17px; }
+  .tag { font-size: 12px; padding: 1px 9px; border-radius: 999px; font-weight: 600; }
+  .tag.free { background: rgba(224,69,123,0.10); color: var(--accent); }
+  .tag.paid { background: rgba(214,48,49,0.12); color: #d63031; }
+  .desc { width: 100%; color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+  .engage { margin-top: 30px; padding: 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--code-bg); text-align: center; }
+  .engage-tip { color: var(--fg); font-size: 15px; margin: 0 0 14px; }
+  .reward { display: flex; gap: 24px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .reward-col { text-align: center; }
+  .reward-qr { width: 120px; height: 120px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--code-bg); overflow: hidden; }
+  .reward-qr img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .reward-col p { margin: 8px 0 0; font-size: 14px; color: var(--fg); }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 28px; text-align: center; }
+</style>
