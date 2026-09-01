@@ -26,7 +26,7 @@ const dateIso = _d ? _d.toISOString().slice(0, 10) : '';
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang={lang} style={`--bg-url:url('${base}24solar-bg.png')`}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -45,6 +45,23 @@ const dateIso = _d ? _d.toISOString().slice(0, 10) : '';
     </script>
     <title>{title} · 心动解码</title>
     {description && <meta name="description" content={description} />}
+    <style is:global>
+      /* 二十四节气新中式插画全局背景 */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: var(--bg-url);
+        background-size: cover;
+        background-position: center top;
+        background-repeat: no-repeat;
+        opacity: 0.13;
+        z-index: -1;
+        pointer-events: none;
+        transition: opacity .25s ease;
+      }
+      :root[data-theme="dark"] body::before { opacity: 0.08; }
+    </style>
   </head>
   <body>
     <SiteHeader lang={lang} altLang={altLang} altHref={altHref} series={series} />

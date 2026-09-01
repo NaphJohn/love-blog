@@ -1,5 +1,6 @@
 ---
 import SiteHeader from '../components/SiteHeader.astro';
+import TodayBadge from '../components/TodayBadge.astro';
 const base = import.meta.env.BASE_URL;
 const chapters = [
   { slug: 'eq1-self-awareness', title: '（一）自我觉察与内在框架：先搞定自己，再谈关系', desc: '课题分离、依恋类型、三个日常可练的稳定动作。', date: '2026-08-01', free: true },
@@ -16,6 +17,18 @@ const freeCount = chapters.filter((c) => c.free).length;
 <main class="course">
   <p class="kicker">✦ 情商 · 亲密关系 · 沟通</p>
   <h1>心动解码 · 情商恋爱手记</h1>
+  <TodayBadge />
+  <script is:inline>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <p class="sub">一套关于「搞定自己、被真诚看见、懂差异、化冲突、深连接、长经营」的情商恋爱实战笔记。前 3 节免费，后续欢迎请作者喝杯咖啡解锁。</p>
   <p class="rule">前 <b>{freeCount}</b> 节免费阅读；后续章节欢迎<b>请作者喝杯咖啡 ☕️</b>（最低 ¥1，上不封顶）解锁全部内容。作者本人免付费。</p>
 
@@ -48,6 +61,7 @@ const freeCount = chapters.filter((c) => c.free).length;
 </main>
 
 <style is:global>
+  :root { --bg-url: url('/love-blog/24solar-bg.png'); }
   .course { max-width: 760px; margin: 0 auto; padding: 48px 16px 40px; }
   .kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 8px; }
   .course h1 { font-size: 32px; margin: 0 0 10px; letter-spacing: 1px; }
@@ -72,4 +86,19 @@ const freeCount = chapters.filter((c) => c.free).length;
   .reward-qr img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .reward-col p { margin: 8px 0 0; font-size: 14px; color: var(--fg); }
   .foot-note { color: var(--muted); font-size: 13px; margin-top: 28px; text-align: center; }
+  /* 二十四节气新中式插画全局背景 */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: var(--bg-url);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    opacity: 0.13;
+    z-index: -1;
+    pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  :root[data-theme="dark"] body::before { opacity: 0.08; }
 </style>

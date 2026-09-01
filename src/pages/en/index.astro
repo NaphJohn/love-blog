@@ -1,5 +1,6 @@
 ---
 import SiteHeader from '../../components/SiteHeader.astro';
+import TodayBadge from '../../components/TodayBadge.astro';
 const base = import.meta.env.BASE_URL;
 const chapters = [
   { slug: 'eq1-self-awareness', title: '(1) Self-Awareness & Inner Frame — Fix Yourself Before the Relationship', desc: 'Separation of tasks, attachment styles, three daily stabilizing moves.', date: '2026-08-01', free: true },
@@ -16,6 +17,18 @@ const freeCount = chapters.filter((c) => c.free).length;
 <main class="course">
   <p class="kicker">✦ Emotional Intelligence · Intimacy · Communication</p>
   <h1>Heartbeat Decode · Love &amp; EQ Notes</h1>
+  <TodayBadge lang="en" />
+  <script is:inline>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <p class="sub">A practical EQ-and-love notebook: fix yourself, be sincerely seen, understand differences, resolve conflict, connect deeply, manage long-term. First 3 episodes free; later ones unlock with a coffee for the author.</p>
   <p class="rule">First <b>{freeCount}</b> episodes are free. Later chapters unlock with a <b>coffee for the author ☕️</b> (from ¥1, no upper limit). The author is exempt.</p>
 
@@ -48,6 +61,22 @@ const freeCount = chapters.filter((c) => c.free).length;
 </main>
 
 <style is:global>
+  :root { --bg-url: url('/love-blog/24solar-bg.png'); }
+  /* 二十四节气新中式插画全局背景 */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: var(--bg-url);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    opacity: 0.13;
+    z-index: -1;
+    pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  :root[data-theme="dark"] body::before { opacity: 0.08; }
   .course { max-width: 760px; margin: 0 auto; padding: 48px 16px 40px; }
   .kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 8px; }
   .course h1 { font-size: 32px; margin: 0 0 10px; letter-spacing: 1px; }
