@@ -1,0 +1,529 @@
+---
+import SiteHeader from '../components/SiteHeader.astro';
+const base = import.meta.env.BASE_URL;
+
+// ── 四型人格：化学底色 / 典型特质 / 约会时如何识别 ──
+const types = [
+  {
+    id: 'E', emoji: '🎢', name: '探索者', en: 'Explorer', chem: '多巴胺高', color: '#f59e0b',
+    traits: '好奇、爱冒险、说走就走、精力旺、怕无聊、爱新鲜感',
+    spot: '聊旅行 / 新店 / 极限运动眼睛发光；日程常「还没想好」；口语多「好玩、刺激、下次试试」',
+    good: '带得动场子、不怕陌生场合、能给关系注入新鲜感、恢复力强',
+    trap: '新鲜感一退就想跑；把「关系」也当成一个待体验的项目；承诺偏慢，容易让对方没有安全感',
+    match: '和「建设者」互补最稳（你负责带节奏，他负责兜底）；和同为探索者的人一开始最爽，但两个人都不管家时容易散',
+    use: '模型 1：你天生不想「定下来」，所以要反着用——先给自己划一个观察期比例（比如未来 10 个接触对象里的前 3–4 个），过了这段就真的开始挑「比之前都好」的那个，而不是永远在观察。模型 2：你素材最多，把「说走就走的旅行」写成 3 个只有你会写的具体片段，比「热爱自由」强 7 倍。',
+  },
+  {
+    id: 'B', emoji: '🏡', name: '建设者', en: 'Builder', chem: '血清素高', color: '#16a34a',
+    traits: '沉稳、守序、重家庭与朋友、做事有计划、社交圆融、恋旧',
+    spot: '聊家人 / 老朋友 / 固定习惯多；守时；喜欢「每年都去同一个地方」这种叙事',
+    good: '可预期、让人安心、长期关系里最耐用的一型；社交圆融，不容易得罪人',
+    trap: '太早把关系「制度化」会劝退探索者型的人；对新东西的容忍度低，容易把「不同」误判成「不合适」',
+    match: '和「协商者」最顺（都重关系和谐）；和「探索者」互补——但你要接受他的日程永远「还没想好」',
+    use: '模型 3：你的稳定感主要来自相似度，所以把「不能让」的 3 条底线写下来当筛子，别指望「磨合磨合就行」（Gottman：69% 是永久性问题）。模型 12b：你有求稳倾向，但别用「平均值」备资源——请 60 人、到场率 90%，按 54 人订桌有一半概率不够坐，要按 58 人订。模型 8：你容易坐在「被动接受安排」那一侧，记得你也该主动提。',
+  },
+  {
+    id: 'D', emoji: '🎯', name: '主导者', en: 'Director', chem: '睾酮高', color: '#dc2626',
+    traits: '直接、果断、竞争心强、重目标与效率、就事论事、感情表达克制',
+    spot: '聊天像开会：直给结论、爱辩论、问「所以呢 / 然后呢」；约会倾向安排高效行程',
+    good: '决断快、能扛事、目标感强；在关系里不拖泥带水，问题解决效率高',
+    trap: '把伴侣当队友而不是当人；「高效行程」会让协商者觉得没被听见；一生气就上结论，容易把协调问题打成胜负问题',
+    match: '和「协商者」互补最好（你做决定，他护关系）；和另一个主导者在一起，容易变成两个人在争方向盘',
+    use: '模型 8：你本来就敢提，但要区分「提出」和「纠缠」——提一次、拿到明确答复就完成，别反复施压。模型 5：你最容易犯的错是「追 Top 1%」，数学上在任何自身水平下都不占优；提升自己（x）永远比抬高目标（y）划算。模型 4：别把关系当项目管——冷战是协调问题不是胜负问题，约定一个「这周轮到谁先让」的外部规则比讲道理有用。',
+  },
+  {
+    id: 'N', emoji: '🕊️', name: '协商者', en: 'Negotiator', chem: '雌激素高', color: '#6366f1',
+    traits: '共情力强、语言流利、重关系和谐、直觉敏锐、看大局、怕冲突',
+    spot: '擅长追问你的感受；说话留余地；记得你上次提过的细节；回避正面表态',
+    good: '共情与表达是天赋；能长期把关系的温度维持住；最擅长「让人愿意说真话」',
+    trap: '为了不冲突而不敢设条件、不敢表态，最后自己憋着；容易一直当「接受安排」的一方，还觉得自己没有选择权',
+    match: '和「主导者」最互补（他推、你稳）；和「建设者」同频最舒服；和同为协商者的人相处极顺，但可能谁都不肯把话讲死',
+    use: '模型 9：你最舍不得松的其实是「有眼缘 / 聊得来」这类感觉条件——把它按「放开能多多少人」排序，先松最前面那条（各 20 倍）。模型 4：你太怕冲突，容易一直让步；正确做法不是「更能忍」，而是事先约定「谁先让」的外部机制（轮流先退一步，收益 +1.003/期、冷战清零）。模型 8：记住你也该是提议方——被动方平均落到第 35.6 志愿，主动方是第 5.7 志愿。',
+  },
+];
+
+// ── 20 道题：每题 4 个选项，分别指向四型中的一型 ──
+const quiz = [
+  ['周五晚上突然空出一个整晚，你第一反应是？', [
+    ['E', '立刻查有没有新开的店 / 演出，约人冲'],
+    ['B', '回家做顿固定的家常菜，早点睡'],
+    ['D', '把下周的项目清单理一遍，顺手清掉两件'],
+    ['N', '找个朋友深聊，问问他最近怎么样'],
+  ]],
+  ['刚认识一个人，你先注意到他的？', [
+    ['E', '有没有意思、玩不玩得来'],
+    ['B', '靠不靠谱、作息稳不稳定'],
+    ['D', '能力和段位，能学到什么'],
+    ['N', '情绪状态，他今天好像不太开心'],
+  ]],
+  ['计划一场旅行，你会？', [
+    ['E', '到了再说，机票先订，行程随机'],
+    ['B', '提前订好每天住哪、几点去哪'],
+    ['D', '只定目标与预算，过程要高效'],
+    ['N', '先问同行的人想怎么玩，尽量都照顾到'],
+  ]],
+  ['被批评了，你的第一反应？', [
+    ['E', '不爽但很快翻篇，找点新鲜的转移一下'],
+    ['B', '反复想很久，担心关系是不是坏了'],
+    ['D', '先判断对方说得对不对，对的就改'],
+    ['N', '想他为什么这么说，是不是我伤到他了'],
+  ]],
+  ['朋友聚会里，你通常是？', [
+    ['E', '提议玩新游戏、拉大家去第二场的人'],
+    ['B', '张罗固定那几家店、让大家都舒服的人'],
+    ['D', '聊着聊着开始争论一个观点的人'],
+    ['N', '最会接话、让大家不冷场的人'],
+  ]],
+  ['关于「稳定」，你的感受是？', [
+    ['E', '稳定 = 无聊，我会自己找刺激'],
+    ['B', '稳定就是我要的安全感'],
+    ['D', '稳定是效率的前提，但别拖我后腿'],
+    ['N', '稳定重要，但关系和谐更重要'],
+  ]],
+  ['你表达喜欢一个人的方式是？', [
+    ['E', '带他去没去过的地方，制造新鲜体验'],
+    ['B', '记住他的习惯，长期稳定地照顾'],
+    ['D', '直接说「我喜欢你」，然后安排下一步'],
+    ['N', '说很多心里话，让他觉得被理解'],
+  ]],
+  ['恋爱里最容易让你炸的点是？', [
+    ['E', '对方太黏、太闷、每天都在重复'],
+    ['B', '对方不守承诺、没有规划'],
+    ['D', '对方拖沓、讲不清楚、浪费时间'],
+    ['N', '对方冷战、不肯沟通、把话说死'],
+  ]],
+  ['吵架之后，你多半？', [
+    ['E', '出门跑个步 / 玩一局，气就消了大半'],
+    ['B', '自己消化，然后找个时机好好聊'],
+    ['D', '摆事实，把问题拆成几条，逐条解决'],
+    ['N', '先低头缓和气氛，怕关系留下裂痕'],
+  ]],
+  ['别人形容你，最常出现哪个词？', [
+    ['E', '有意思 / 敢玩'],
+    ['B', '踏实 / 靠谱'],
+    ['D', '厉害 / 直接'],
+    ['N', '温柔 / 会说话'],
+  ]],
+  ['你怎么做重要决定？', [
+    ['E', '凭直觉，先干了再说'],
+    ['B', '查资料、问过来人，稳妥第一'],
+    ['D', '列好标准，算清成本收益'],
+    ['N', '问问身边人怎么想，尽量不伤到谁'],
+  ]],
+  ['一顿理想的约会晚餐是？', [
+    ['E', '没吃过的异国小店 + 饭后去听现场'],
+    ['B', '熟悉的那家、靠窗的位置、安静聊天'],
+    ['D', '干净利落、不用排队、吃完还能做点事'],
+    ['N', '能吃很久、聊到打烊、彼此都说了真心话'],
+  ]],
+  ['一个人的时候，你在？', [
+    ['E', '找新东西玩，坐不住'],
+    ['B', '收拾屋子、把生活理顺'],
+    ['D', '复盘、定目标、看数据'],
+    ['N', '想事情、写点东西、理情绪'],
+  ]],
+  ['对「规则和流程」，你？', [
+    ['E', '能绕就绕，别耽误我玩'],
+    ['B', '有规则才安心，按流程来'],
+    ['D', '只保留有用的，其余删掉'],
+    ['N', '规则别伤到人，可以商量着来'],
+  ]],
+  ['你更受不了哪种关系？', [
+    ['E', '一眼望到头的无聊'],
+    ['B', '朝令夕改、没有安全感'],
+    ['D', '无休止的情绪拉扯，没效率'],
+    ['N', '长期冷战、不把话讲开'],
+  ]],
+  ['朋友找你倾诉，你会？', [
+    ['E', '拉他出去换个环境，玩一玩就好了'],
+    ['B', '耐心听，然后给他一些稳妥的建议'],
+    ['D', '帮他分析问题、给方案'],
+    ['N', '先接住他的情绪，让他觉得被懂'],
+  ]],
+  ['关于「惊喜」，你？', [
+    ['E', '喜欢制造惊喜，也喜欢被惊喜'],
+    ['B', '更喜欢可预期的安排，惊喜要适度'],
+    ['D', '惊喜要有效，不然不如直接说'],
+    ['N', '只要对方用心，小惊喜就很感动'],
+  ]],
+  ['你对未来的想象是？', [
+    ['E', '还有很多地方没去、很多事没试'],
+    ['B', '一个小家、稳定的圈子、慢慢变老'],
+    ['D', '把事业做起来，站到更高的位置'],
+    ['N', '有能深聊的人，关系都好好维持着'],
+  ]],
+  ['争执时你的说话方式？', [
+    ['E', '换个话题、开个玩笑，先把气氛调回来'],
+    ['B', '慢一点、把话讲清楚，别伤感情'],
+    ['D', '一句话说到点子上，就事论事'],
+    ['N', '留余地、找双方都能接受的台阶'],
+  ]],
+  ['你希望伴侣最像？', [
+    ['E', '一个能一起冒险的同谋'],
+    ['B', '一个能一起过日子的伙伴'],
+    ['D', '一个能并肩作战的队友'],
+    ['N', '一个能听懂你全部心里话的人'],
+  ]],
+];
+---
+
+<SiteHeader lang="zh" series="心动解码" />
+<main class="lt">
+  <p class="kicker">✦ 四型人格 · 20 题 · 即时出结果</p>
+  <h1>你是探索者、建设者、主导者，还是协商者？</h1>
+  <p class="meta">四型人格（Explorer / Builder / Director / Negotiator）是一套按「化学底色」划分的通俗框架：多巴胺 → 探索者、血清素 → 建设者、睾酮 → 主导者、雌激素 → 协商者。它不预测你会不会幸福，只帮你更快看懂自己「默认怎么出手」，以及对方在约会时露出了什么线索。</p>
+
+  <script is:inline>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- ══ 速查表 ══ -->
+  <h2 class="sub-h">🧬 四型人格速查表</h2>
+  <p class="hint">👇 点选任意一型展开：化学底色 / 典型特质 / 约会时如何识别 / 关系里的坑 / 与谁最搭。</p>
+  <div class="tgrid">
+    {types.map((t) => (
+      <button class="tcard" type="button" data-type={t.id} style={`--tc:${t.color}`}>
+        <span class="tcard-emoji">{t.emoji}</span>
+        <span class="tcard-name">{t.name}</span>
+        <span class="tcard-en">{t.en}</span>
+        <span class="tcard-chem">{t.chem}</span>
+      </button>
+    ))}
+  </div>
+  <div class="tsheet">
+    {types.map((t) => (
+      <article class="tpane" data-type={t.id} style={`--tc:${t.color}`} hidden>
+        <h3><span class="tp-emoji">{t.emoji}</span>{t.name} <small>{t.en} · {t.chem}</small></h3>
+        <div class="tp-row"><span class="tp-l">典型特质</span><p>{t.traits}</p></div>
+        <div class="tp-row"><span class="tp-l">约会时如何识别</span><p>{t.spot}</p></div>
+        <div class="tp-row"><span class="tp-l">优势</span><p>{t.good}</p></div>
+        <div class="tp-row"><span class="tp-l">关系里的坑</span><p>{t.trap}</p></div>
+        <div class="tp-row"><span class="tp-l">与谁最搭</span><p>{t.match}</p></div>
+      </article>
+    ))}
+  </div>
+
+  <!-- ══ 测试 ══ -->
+  <h2 class="sub-h" id="quiz">📝 20 题，测你的主导型</h2>
+  <p class="hint">按第一直觉选，别想「哪个更好」。选完自动进入下一题，随时可以回上一题改。</p>
+
+  <div class="quizbox">
+    <div class="qbar">
+      <div class="qbar-track"><div class="qbar-fill" id="qbar-fill"></div></div>
+      <span class="qbar-txt" id="qbar-txt">第 1 / 20 题</span>
+    </div>
+
+    <div id="q-stage">
+      {quiz.map((q, qi) => (
+        <div class="qitem" data-qi={qi} hidden>
+          <p class="qtext"><span class="qno">Q{qi + 1}</span>{q[0]}</p>
+          <div class="opts">
+            {q[1].map((o) => (
+              <button class="opt" type="button" data-qi={qi} data-t={o[0]}>
+                <span class="opt-mark"></span>
+                <span class="opt-txt">{o[1]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div class="qnav">
+      <button class="qbtn ghost" id="q-prev" type="button">← 上一题</button>
+      <button class="qbtn ghost" id="q-reset" type="button">重做</button>
+      <button class="qbtn" id="q-next" type="button">下一题 →</button>
+    </div>
+  </div>
+
+  <!-- ══ 结果 ══ -->
+  <div class="result" id="result" hidden>
+    <h2 class="sub-h">🏁 你的结果</h2>
+    <div class="r-hero" id="r-hero"></div>
+
+    <div class="r-bars" id="r-bars"></div>
+
+    <div class="r-detail" id="r-detail"></div>
+
+    <div class="r-extra">
+      <h3>📐 用十二个模型针对你的类型怎么用</h3>
+      <div id="r-use"></div>
+    </div>
+
+    <p class="r-foot">⚠️ 这是通俗框架的简易版，不是心理测评量表；同一个人在不同情境下会切换类型，别拿标签框住自己或对方。</p>
+  </div>
+
+  <section class="engage">
+    <p class="engage-tip">测完了？连同《爱情数学》十二个模型一起看，效果最好 ☕️</p>
+    <p class="engage-links">
+      <a href={`${base}love-math/`} class="lnk">🧩 爱情数学：九章 × 十二个模型 →</a>
+      <a href={base} class="lnk">📚 回到情商恋爱手记 →</a>
+    </p>
+    <div class="reward">
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/alipay.png`} alt="支付宝收款码" loading="lazy" /></div>
+        <p>支付宝</p>
+      </div>
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/wechat.png`} alt="微信收款码" loading="lazy" /></div>
+        <p>微信</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot-note">⚠️ 本文仅供个人成长参考，不构成心理咨询或专业建议。</p>
+</main>
+
+<script type="application/json" id="type-data" set:html={JSON.stringify(types.map((t) => ({ id: t.id, emoji: t.emoji, name: t.name, en: t.en, chem: t.chem, color: t.color, traits: t.traits, spot: t.spot, good: t.good, trap: t.trap, match: t.match, use: t.use })))}></script>
+
+<script is:inline>
+  (function () {
+    var DATA = JSON.parse(document.getElementById('type-data').textContent);
+    var byId = {};
+    DATA.forEach(function (t) { byId[t.id] = t; });
+    var ORDER = ['E', 'B', 'D', 'N'];
+    var TOTAL = document.querySelectorAll('.qitem').length;
+    var answers = new Array(TOTAL).fill(null);
+    var cur = 0;
+
+    // ── 速查表点选 ──
+    var tcards = document.querySelectorAll('.tcard');
+    var tpanes = document.querySelectorAll('.tpane');
+    function showType(id) {
+      tcards.forEach(function (c) { c.classList.toggle('on', c.getAttribute('data-type') === id); });
+      tpanes.forEach(function (p) { p.hidden = p.getAttribute('data-type') !== id; });
+    }
+    tcards.forEach(function (c) {
+      c.addEventListener('click', function () { showType(c.getAttribute('data-type')); });
+    });
+    if (tcards.length) showType('E');
+
+    // ── 答题 ──
+    var items = document.querySelectorAll('.qitem');
+    function render() {
+      items.forEach(function (it) {
+        var qi = parseInt(it.getAttribute('data-qi'), 10);
+        it.hidden = qi !== cur;
+        it.querySelectorAll('.opt').forEach(function (b) {
+          b.classList.toggle('on', answers[qi] === b.getAttribute('data-t'));
+        });
+      });
+      var done = answers.filter(Boolean).length;
+      var fill = document.getElementById('qbar-fill');
+      if (fill) fill.style.width = Math.round((done / TOTAL) * 100) + '%';
+      var txt = document.getElementById('qbar-txt');
+      if (txt) txt.textContent = '第 ' + (cur + 1) + ' / ' + TOTAL + ' 题 · 已答 ' + done;
+      var prev = document.getElementById('q-prev');
+      var next = document.getElementById('q-next');
+      if (prev) prev.disabled = cur === 0;
+      if (next) next.textContent = (cur === TOTAL - 1) ? '看结果 🏁' : '下一题 →';
+    }
+    document.querySelectorAll('.opt').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var qi = parseInt(b.getAttribute('data-qi'), 10);
+        answers[qi] = b.getAttribute('data-t');
+        render();
+        setTimeout(function () {
+          if (qi < TOTAL - 1) { cur = qi + 1; render(); }
+          else { compute(); }
+        }, 170);
+      });
+    });
+    document.getElementById('q-prev').addEventListener('click', function () {
+      if (cur > 0) { cur--; render(); }
+    });
+    document.getElementById('q-next').addEventListener('click', function () {
+      if (cur < TOTAL - 1) { cur++; render(); }
+      else { compute(); }
+    });
+    document.getElementById('q-reset').addEventListener('click', function () {
+      answers = new Array(TOTAL).fill(null);
+      cur = 0;
+      document.getElementById('result').hidden = true;
+      render();
+      document.getElementById('quiz').scrollIntoView({ behavior: 'smooth' });
+    });
+    render();
+
+    // ── 计算结果 ──
+    function compute() {
+      var score = { E: 0, B: 0, D: 0, N: 0 };
+      answers.forEach(function (a) { if (a && score[a] !== undefined) score[a]++; });
+      var answered = answers.filter(Boolean).length;
+      if (answered === 0) { alert('先答几题吧'); return; }
+      var ranked = ORDER.slice().sort(function (a, b) { return score[b] - score[a]; });
+      var top = ranked[0], second = ranked[1];
+      var tie = score[top] - score[second] <= 1;
+      var T = byId[top], T2 = byId[second];
+      // 平票时列出所有「与最高分相差 ≤ 1」的类型（可能是 2 型甚至 4 型）
+      var list = ranked.filter(function (id) { return score[id] >= score[top] - 1; }).map(function (id) { return byId[id]; });
+      if (!list.length) list = [T];
+
+      var hero = document.getElementById('r-hero');
+      hero.style.setProperty('--tc', T.color);
+      hero.innerHTML =
+        '<div class="rh-top"><span class="rh-emoji">' + T.emoji + '</span>' +
+        '<div><div class="rh-kicker">' + (tie ? '你的主导型 · ' + list.length + ' 型接近' : '你的主导型') + '</div>' +
+        '<div class="rh-name" style="color:' + T.color + '">' + T.name + ' <small>' + T.en + '</small></div>' +
+        '<div class="rh-chem">化学底色：' + T.chem + (tie ? '　·　接近的副型：' + list.slice(1).map(function (x) { return x.emoji + ' ' + x.name + '（' + x.chem + '）'; }).join('、') : '') + '</div></div></div>' +
+        (tie ? '<p class="rh-tie">你有 ' + list.length + ' 项得分非常接近（' + list.map(function (x) { return x.name + ' ' + score[x.id] + ' 分'; }).join(' / ') + '）——你不是「选不出来」，而是真的在这些类型之间来回切换。下面的主卡看主导型，其余类型的用法在最后。</p>' : '') +
+        '<div class="rh-grid">' +
+        '<div><span>典型特质</span><p>' + T.traits + '</p></div>' +
+        '<div><span>约会时如何识别</span><p>' + T.spot + '</p></div>' +
+        '<div><span>优势</span><p>' + T.good + '</p></div>' +
+        '<div><span>关系里的坑</span><p>' + T.trap + '</p></div>' +
+        '<div><span>与谁最搭</span><p>' + T.match + '</p></div>' +
+        '</div>';
+
+      var bars = document.getElementById('r-bars');
+      bars.innerHTML = ORDER.map(function (id) {
+        var t = byId[id];
+        var pct = Math.round((score[id] / TOTAL) * 100);
+        return '<div class="bar-row"><span class="bar-name">' + t.emoji + ' ' + t.name + '</span>' +
+          '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%;background:' + t.color + '"></span></span>' +
+          '<span class="bar-num">' + score[id] + ' / ' + TOTAL + '　' + pct + '%</span></div>';
+      }).join('');
+
+      var detail = document.getElementById('r-detail');
+      detail.innerHTML = list.map(function (t) {
+        return '<div class="dt-card" style="--tc:' + t.color + '"><h3>' + t.emoji + ' ' + t.name + ' <small>' + t.chem + '</small></h3>' +
+          '<p><b>典型特质：</b>' + t.traits + '</p>' +
+          '<p><b>约会时如何识别：</b>' + t.spot + '</p>' +
+          '<p><b>关系里的坑：</b>' + t.trap + '</p>' +
+          '<p><b>与谁最搭：</b>' + t.match + '</p></div>';
+      }).join('');
+
+      var use = document.getElementById('r-use');
+      use.innerHTML = list.map(function (t) {
+        return '<div class="use-card"><h4>' + t.emoji + ' ' + t.name + ' 怎么用这些模型</h4><p>' + t.use + '</p></div>';
+      }).join('');
+
+      document.getElementById('result').hidden = false;
+      document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+    }
+  })();
+</script>
+
+<style is:global>
+  :root { --bg-url: url('/love-blog/24solar-bg.png'); }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: var(--bg-url); background-size: cover; background-position: center top;
+    background-repeat: no-repeat; opacity: 0.13; z-index: -1; pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  :root[data-theme="dark"] body::before { opacity: 0.08; }
+</style>
+
+<style>
+  .lt { max-width: 820px; margin: 0 auto; padding: 36px 20px 64px; }
+  .kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 8px; }
+  .lt h1 { font-size: 29px; line-height: 1.35; margin: 0 0 8px; }
+  .meta { color: var(--muted); font-size: 13.5px; line-height: 1.8; margin: 0 0 22px; }
+  .sub-h { font-size: 20px; margin: 34px 0 10px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  .hint { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+
+  /* 速查表 */
+  .tgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .tcard { border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 10px; background: var(--bg); color: var(--fg); cursor: pointer; text-align: center; transition: .16s; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .tcard:hover { transform: translateY(-2px); border-color: var(--tc); }
+  .tcard.on { border-color: var(--tc); border-width: 2px; background: color-mix(in srgb, var(--tc) 9%, transparent); }
+  .tcard-emoji { font-size: 24px; }
+  .tcard-name { font-weight: 800; font-size: 15px; }
+  .tcard-en { color: var(--muted); font-size: 11px; }
+  .tcard-chem { font-size: 11.5px; color: var(--tc); font-weight: 700; margin-top: 3px; }
+
+  .tpane { border: 1px solid var(--border); border-left: 4px solid var(--tc); border-radius: 0 12px 12px 0; padding: 16px 18px; background: var(--bg); }
+  .tpane h3 { margin: 0 0 10px; font-size: 18px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tpane h3 small { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .tp-emoji { font-size: 20px; }
+  .tp-row { display: flex; gap: 10px; margin: 7px 0; font-size: 14px; line-height: 1.75; }
+  .tp-l { flex: none; width: 104px; color: var(--tc); font-weight: 700; font-size: 12.5px; padding-top: 2px; }
+  .tp-row p { margin: 0; }
+
+  /* 测试盒 */
+  .quizbox { border: 1px solid var(--border); border-radius: 14px; padding: 18px; background: var(--bg); }
+  .qbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .qbar-track { flex: 1; height: 8px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .qbar-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+  .qbar-txt { color: var(--muted); font-size: 12.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .qtext { font-size: 17px; font-weight: 650; line-height: 1.6; margin: 4px 0 14px; }
+  .qno { color: var(--accent); font-weight: 800; font-size: 13px; margin-right: 8px; }
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { display: flex; align-items: center; gap: 11px; text-align: left; padding: 12px 15px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 14.5px; line-height: 1.55; transition: .15s; }
+  .opt:hover { border-color: var(--accent); transform: translateX(3px); }
+  .opt.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  .opt-mark { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); flex: none; transition: .15s; }
+  .opt.on .opt-mark { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--bg); }
+  .qnav { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .qbtn { padding: 9px 20px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font-size: 14.5px; cursor: pointer; transition: .15s; }
+  .qbtn:hover { opacity: .9; }
+  .qbtn:disabled { opacity: .4; cursor: not-allowed; }
+  .qbtn.ghost { background: transparent; color: var(--accent); }
+  #q-next { margin-left: auto; }
+
+  /* 结果 */
+  .result { margin-top: 8px; }
+  .r-hero { border: 2px solid var(--tc); border-radius: 14px; padding: 18px 20px; background: var(--bg); }
+  .rh-top { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .rh-emoji { font-size: 40px; }
+  .rh-kicker { color: var(--muted); font-size: 12.5px; letter-spacing: 1px; }
+  .rh-name { font-size: 26px; font-weight: 800; line-height: 1.2; }
+  .rh-name small { color: var(--muted); font-size: 13px; font-weight: 500; }
+  .rh-chem { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .rh-tie { background: var(--code-bg); border-radius: 8px; padding: 10px 13px; font-size: 13.5px; line-height: 1.7; margin: 0 0 12px; }
+  .rh-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .rh-grid > div { background: var(--code-bg); border-radius: 8px; padding: 10px 13px; }
+  .rh-grid span { display: block; color: var(--tc); font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+  .rh-grid p { margin: 0; font-size: 14px; line-height: 1.75; }
+
+  .r-bars { margin: 18px 0 0; border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; background: var(--bg); }
+  .bar-row { display: flex; align-items: center; gap: 12px; margin: 9px 0; }
+  .bar-name { flex: none; width: 108px; font-size: 13.5px; }
+  .bar-track { flex: 1; height: 12px; background: var(--code-bg); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { display: block; height: 100%; border-radius: 999px; transition: width .5s ease; }
+  .bar-num { flex: none; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; width: 116px; text-align: right; }
+
+  .r-detail { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .dt-card { border: 1px solid var(--border); border-left: 4px solid var(--tc); border-radius: 0 12px 12px 0; padding: 15px 17px; background: var(--bg); }
+  .dt-card h3 { margin: 0 0 8px; font-size: 17px; }
+  .dt-card h3 small { color: var(--muted); font-size: 12.5px; font-weight: 500; margin-left: 6px; }
+  .dt-card p { margin: 6px 0; font-size: 14px; line-height: 1.75; }
+
+  .r-extra { margin-top: 24px; }
+  .r-extra h3 { font-size: 17.5px; margin: 0 0 10px; }
+  .use-card { background: color-mix(in srgb, var(--accent) 7%, transparent); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 12px 12px 0; padding: 14px 16px; margin-bottom: 10px; }
+  .use-card h4 { margin: 0 0 6px; font-size: 15px; }
+  .use-card p { margin: 0; font-size: 14px; line-height: 1.8; }
+  .r-foot { color: var(--muted); font-size: 12.5px; margin-top: 16px; line-height: 1.7; }
+
+  .engage { margin-top: 42px; padding-top: 26px; border-top: 1px solid var(--border); text-align: center; }
+  .engage-tip { color: var(--fg); font-size: 15px; margin: 0 0 10px; }
+  .engage-links { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 0 0 18px; }
+  .lnk { color: var(--accent); text-decoration: none; font-size: 14.5px; border: 1px dashed var(--accent); border-radius: 999px; padding: 6px 16px; }
+  .lnk:hover { background: var(--accent); color: #fff; }
+  .reward { display: flex; gap: 24px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .reward-col { text-align: center; }
+  .reward-qr { width: 120px; height: 120px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--code-bg); overflow: hidden; }
+  .reward-qr img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .reward-col p { margin: 8px 0 0; font-size: 14px; }
+  .foot-note { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; }
+
+  @media (max-width: 620px) {
+    .tgrid { grid-template-columns: repeat(2, 1fr); }
+    .tp-row { flex-direction: column; gap: 2px; }
+    .tp-l { width: auto; }
+    .bar-name { width: 84px; font-size: 12.5px; }
+    .bar-num { width: 96px; font-size: 11.5px; }
+    #q-next { margin-left: 0; width: 100%; }
+  }
+</style>

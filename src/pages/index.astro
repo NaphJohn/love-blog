@@ -43,6 +43,26 @@ const freeCount = chapters.filter((c) => c.free).length;
     ))}
   </ol>
 
+  <section class="labs">
+    <p class="labs-kicker">✦ 互动实验室</p>
+    <a class="lab lab-math" href={`${base}love-math/`}>
+      <span class="lab-ico">🧩</span>
+      <span class="lab-body">
+        <span class="lab-t">爱情数学：九章 × 十二个模型</span>
+        <span class="lab-d">把《爱情数学》全书拆成能算、能验证的 12 个模型（37% 法则 = 1/e、塔尖拥堵、稳定匹配、条件连乘、长尾均值陷阱……），每个都带「能算出来的数 / 怎么用 / 什么时候别用 / 是否有效」。<b>可点选 · 全部数字现算</b></span>
+      </span>
+      <span class="lab-go">进入 →</span>
+    </a>
+    <a class="lab lab-type" href={`${base}love-type/`}>
+      <span class="lab-ico">🧬</span>
+      <span class="lab-body">
+        <span class="lab-t">四型人格测试：你是哪一型？</span>
+        <span class="lab-d">探索者（多巴胺）/ 建设者（血清素）/ 主导者（睾酮）/ 协商者（雌激素）——20 题即时出结果，附四型速查表、约会时如何识别、关系里的坑，以及每型该用哪个模型。<b>答题 · 即时出结果</b></span>
+      </span>
+      <span class="lab-go">去测试 →</span>
+    </a>
+  </section>
+
   <section class="engage">
     <p class="engage-tip">觉得有用？欢迎请作者喝杯咖啡 ☕️</p>
     <div class="reward">
@@ -79,6 +99,21 @@ const freeCount = chapters.filter((c) => c.free).length;
   .tag.paid { background: rgba(214,48,49,0.12); color: #d63031; }
   .desc { width: 100%; color: var(--muted); font-size: 13px; margin: 4px 0 0; }
   .engage { margin-top: 30px; padding: 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--code-bg); text-align: center; }
+
+  /* 互动实验室入口 */
+  .labs { margin-top: 30px; }
+  .labs-kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 10px; }
+  .lab { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; text-decoration: none; color: var(--fg); transition: .16s; }
+  .lab:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .lab-math { border-left: 4px solid #6366f1; }
+  .lab-type { border-left: 4px solid var(--accent); }
+  .lab-ico { font-size: 28px; flex: none; }
+  .lab-body { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .lab-t { font-weight: 700; font-size: 17px; }
+  .lab-d { color: var(--muted); font-size: 13px; line-height: 1.7; }
+  .lab-d b { color: var(--accent); font-weight: 700; }
+  .lab-go { flex: none; color: var(--accent); font-size: 13.5px; font-weight: 600; }
+  @media (max-width: 560px) { .lab-go { display: none; } }
   .engage-tip { color: var(--fg); font-size: 15px; margin: 0 0 14px; }
   .reward { display: flex; gap: 24px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
   .reward-col { text-align: center; }

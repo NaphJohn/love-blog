@@ -1,0 +1,719 @@
+---
+import SiteHeader from '../components/SiteHeader.astro';
+const base = import.meta.env.BASE_URL;
+
+// ── 九章 → 模型 映射（照《爱情数学》原书章节；与研报「章节覆盖」一致）──
+const chapters = [
+  { no: 1, name: '找到真爱的概率', models: [9], note: '候选池是被「乘」的，不是被减的。最贵的条件往往是你最不肯松的那条。' },
+  { no: 2, name: '容貌', models: [2], note: '原书这一章讲外貌与照片；本报告没有单独建模（它要的是图像数据，不是一个可解析的目标函数），只用「信息量」间接涉及「资料里该写什么」。' },
+  { no: 3, name: '选择', models: [10], note: '多一个「同价但更差」的选项，反而让你选贵的——诱饵效应。' },
+  { no: 4, name: '匹配', models: [8], note: '全书唯一一条定理级结论，也是唯一一个已经在为几百万人分配命运的制度。' },
+  { no: 5, name: '恋爱游戏', models: [1, 5], note: '「该出手时就出手」的时机问题（最优停止）与「该追多好的人」的目标问题（吸引力分布）。' },
+  { no: 6, name: '伴侣数量', models: [11], note: '别用「平均」代表「典型」——长尾分布下，多数人在平均值下面。' },
+  { no: 7, name: '何时安定', models: [1, 3], note: '什么时候定下来（观察期比例），以及定下来之后靠什么撑住（相似 vs 互补）。' },
+  { no: 8, name: '如何办一场婚礼', models: [12], note: '座位是图划分、请柬是二项分布——两道纯组合数学题。' },
+  { no: 9, name: '如何一直幸福', models: [3, 4], note: '冷战是协调问题不是利益冲突；相似度是及格线、互补度是加分项。' },
+];
+
+// ── 十二个模型（数字全部来自 compute_models.py 现算，seed=20260923）──
+const models = [
+  {
+    n: 1, key: 'stop', emoji: '⏳', title: '什么时候该「定下来」：最优停止',
+    chapter: '第 5 / 7 章', tagline: '「前 37% 只看不承诺」不是鸡汤，是 1/e ≈ 0.368 的近似',
+    formula: 'P(k, n) = (k/n) · Σ(i = k+1 → n) 1/(i − 1)',
+    numbers: [
+      { k: 'n = 100 最优 k', v: '37', note: 'k/n = 0.370' },
+      { k: '精确成功率', v: '0.3710', note: '峰值' },
+      { k: '蒙特卡洛 20 万次', v: '0.3708', note: '与精确值吻合' },
+      { k: '理论极限 1/e', v: '0.367879', note: 'n → ∞' },
+    ],
+    insight: '峰在 k/n = 0.370，几乎与 1/e 重合。更要紧的是偏离是**不对称**的：跳过前 30 人还能保住峰值的 98%，跳过前 70 人只剩 68%，跳过前 90 人只剩 26%。所以「多看几个再定」这件事——往左偏是打折，往右偏是腰斩，拿不准就往早的一侧偏。',
+    how: '先估一个 N（你未来一段时间大概会认真接触多少人）→ 前 37% 只观察、不承诺，只记下「目前为止最好的是什么水平」→ 从第 4 个开始，遇到第一个超过观察期最好水平的人就定下来，不再往后看。',
+    notFor: '机会不是排队来的（对象可能被别人先锁定）→ 观察期要缩短；你能回头（对方还在）→ 不该跳过，可以更挑；N 未知 → 把 N 设成「你愿意等待的时长」的函数。',
+    tier: 'strict',
+    valid: '数学最硬、经验最弱。三条前提（n 已知、不可回头、只能相对比较）现实中都不满足，所以 37% 是**结构参考**，不是操作指令。',
+  },
+  {
+    n: 2, key: 'idf', emoji: '✍️', title: '资料里该写什么：信息量 = log(1/p)',
+    chapter: '第 2 章 · 资料与开场白', tagline: '删掉所有「不筛人」的形容词',
+    formula: 'IDF(w) = log( 1 / p(w) )　　p(w) = 写这个词的人的比例',
+    numbers: [
+      { k: '滑板（3% 的人写）', v: '3.507', note: '信息量最高' },
+      { k: '吉他（6%）', v: '2.813', note: '' },
+      { k: '爬山（9%）', v: '2.408', note: '' },
+      { k: '幽默（62%）', v: '0.478', note: '最接近「人人都写」' },
+      { k: '三个具体词 vs 三个虚词', v: '4.3 ×', note: '7.747 vs 1.810' },
+    ],
+    insight: '「幽默」的信息量只有 0.478，而「滑板」有 3.507——差 **7.34 倍**。写三个虚词加起来还不如写一个「滑板」的一半。因为虚词不筛人：说了「幽默」，跟你合不合拍的概率几乎没变。',
+    how: '把资料里所有形容词圈出来（幽默、随和、善良、爱笑、喜欢旅行……）→ 全删 → 换成 3 个只有你会写的具体事实。判据极简单：「这句话是不是换个人也能写？」能 → 删。优先级：具体经历 > 具体爱好 > 具体观点 > 形容词。开场白要短而具体（信息密度 ≠ 长度）。',
+    notFor: 'IDF 只衡量「稀有度」，不衡量「对匹配的有用程度」——冷门但无关的词（比如「收集火柴盒标签」）IDF 也高，筛出来的人未必合拍。',
+    tier: 'assumption',
+    valid: '方向有外部支持（Bruch & Newman 大样本：措辞越积极的消息回应率越低），但 IDF 只是「合拍」的廉价代理量，没被直接检验。',
+  },
+  {
+    n: 3, key: 'hazard', emoji: '🌱', title: '关系能撑多久：相似性 vs 互补性',
+    chapter: '第 7 / 9 章', tagline: '相似是及格线，互补是加分项',
+    formula: 'λ(s, c) = λ₀ · exp(−a·s − b·c)　　E[T] = 1 / λ',
+    numbers: [
+      { k: '基准 λ₀ = 1/2', v: '期望 2.0 年', note: '完全不像也不互补' },
+      { k: '相似度 s: 0 → 0.9', v: '7.2 ×', note: '2.0 → 14.5 年' },
+      { k: '互补度 c: 0 → 0.9（s 固定 0.6）', v: '1.72 ×', note: '7.5 → 12.8 年' },
+      { k: 's = c = 0.9', v: '24.9 年', note: '示意参数下的上界' },
+    ],
+    insight: '在示意参数（a = 2.2、b = 0.6）下，相似度拉满延 **7.2 倍**，互补度拉满只延 **1.72 倍**。这不是「互补不重要」，而是互补是加分项、相似是及格线——风险率函数里 s 的指数权重更大，边际效应就强。',
+    how: '约会前写下 3 条「不能让」（价值观、金钱观、生活节奏、要不要孩子、和原生家庭的边界），这 3 条就是筛选条件，其余全部当加分项。判据：凡是「我希望对方改」的项目 → 归相似类、当场筛掉；凡是「我欣赏但不必参与」的项目 → 归互补类、留下当加分。',
+    notFor: '这个排序不是定理，是参数假设的产物——把权重倒过来（0.6 : 2.2），结论立刻反转。',
+    tier: 'param',
+    valid: '方向与 Gottman 一致（69% 的关系问题是永久性、解决不掉的；四骑士型平均 5.6 年 vs 情感抽离型 16.2 年，比值 2.89 倍反解出的相似度差是 0.483，不离谱），但量级差是参数性的。',
+  },
+  {
+    n: 4, key: 'chicken', emoji: '🧊', title: '为什么都在等对方先道歉：Chicken 博弈',
+    chapter: '第 9 章', tagline: '冷战是协调问题，不是利益冲突——改机制，而不是改「谁更愿意道歉」',
+    formula: '支付矩阵 A/N；混合策略纳什 p(道歉) = 0.50',
+    numbers: [
+      { k: 'p = 0.50（混合纳什）', v: '1.33 期 / −0.001', note: '单期期望收益≈0' },
+      { k: 'p = 0.80', v: '1.04 期 / +0.842', note: '调到极限也就这样' },
+      { k: '轮流先退一步（相关均衡）', v: '0 期 / +1.003', note: '冷战清零' },
+      { k: '机制收益', v: '+1.005 / 期', note: '相对混合纳什' },
+    ],
+    insight: '纯策略纳什有两个——（我道歉，你不道歉）和（我不道歉，你道歉）——均衡定了，但**没定谁道歉**，这就是冷战的本质。把「愿意道歉的概率」从 0.5 调到 0.8，收益也才爬到 +0.842，因为随机化总会撞上「两个都不道歉」。真正的解法是改变博弈本身。',
+    how: '① 把「谁让步」从博弈里拿出来：事先约定一个外部规则（「这周轮到谁先开口」「谁先冷静下来谁先说话」「按单双日」）——关键是规则要在不吵架的时候定好，吵的时候才用得上。② 先处理生理，再处理逻辑：各自离开 20 分钟、等心跳回落，再谈（升级状态下人是没有能力讲道理的）。',
+    notFor: '单期 Chicken 解释的是「僵局」，不是「伤害」。涉及安全、背叛、成瘾这类问题不是协调问题，不要用「谁先让步」的框架去套。',
+    tier: 'strict',
+    valid: '由支付矩阵决定，是结构性的、不需要数据也不怕数据。「先停住升级螺旋」这一条另有 Gottman 的 20 分钟生理冷静实验支持。',
+  },
+  {
+    n: 5, key: 'attraction', emoji: '🎯', title: '该追多好的人：吸引力分布与「塔尖拥堵」',
+    chapter: '第 5 章', tagline: '提升自己（x）永远比抬高目标（y）划算',
+    formula: 'p(x, y) = 1 / (1 + exp(−β·(x − y + c)))　　f(y) = y · p(x, y) − COST',
+    numbers: [
+      { k: '出击门槛 x ≈', v: '−0.74', note: 'β=1.5, c=0.8, COST=0.20' },
+      { k: 'x 跨 2.5 个单位', v: 'y* 只动 0.84', note: '0.74 → 1.59' },
+      { k: 'Top 10% 收走的消息', v: '70.8%', note: '回应率却只有 47.0%' },
+      { k: '最高回应率出现在', v: '25–50% 档 76.0%', note: '不是塔尖' },
+    ],
+    insight: '自身吸引力从 −1.5 涨到 1.0（跨 2.5），最优目标只从 0.74 挪到 1.59（只动 0.84）——**条件差很多的人，都在往「中上段」同一条窄带上出手**。条件越差、差距 Δ* 拉得越大（2.24 → 0.59），于是所有人涌向同一小撮人。塔尖拥堵不是谁不讲理，是每个个体各自最优决策加总出来的结果。而「追 Top 1%」在任何自身水平下都不占优（差值 +0.095 ～ +0.240 恒为正），因为漏掉了一项：**出击成本**。',
+    how: '目标定在比自己高约 1.09 个标准差（x = 0 时），人群层面平均最优差距是 1.448 个标准差——不是「越高越好」，也不是「找个差不多的」。什么时候可以更敢追高：当一次成功的回报远大于单次出击成本（比如朋友介绍 vs 发一条消息），收益函数的指数 γ 越大越该追高（γ = 2 → 1.69，γ = 3 → 2.23）。',
+    notFor: 'β、c、COST 都是示意参数，没有实测数据支撑；换一组数，出击门槛的具体位置会移动。',
+    tier: 'assumption',
+    valid: '方向全对、量级差一倍。只要「回应率随差距下降」+「每次出击有成本」这两条成立，「追 Top 1% 不占优」就是结构性结论，不依赖具体参数。',
+  },
+  {
+    n: 6, key: 'sensitivity', emoji: '🎚️', title: '敏感性：结论有多依赖那些「示意参数」',
+    chapter: '方法论 · 内部检验', tagline: '与其宣称「算出来就是这样」，不如说清参数怎么变、结论什么时候翻转',
+    formula: '扫描 COST / β / (a : b)，看结论是否翻转',
+    numbers: [
+      { k: 'COST 0.05 → 0.50', v: '门槛 −1.810 → +0.175', note: '成本 ≥ 0.35 时 x=0 也不划算' },
+      { k: 'β 0.8 → 2.5', v: '门槛 −1.638 → −0.477', note: '越「看脸」门槛越高' },
+      { k: 'a : b = 2.2 : 0.6', v: '3.74 × / 1.43 ×', note: 's 倍数 / c 倍数' },
+      { k: 'a : b = 0.6 : 2.2', v: '1.43 × / 3.74 ×', note: '权重一倒，结论反转' },
+    ],
+    insight: '模型 3 的「相似比互补重要」本质上是假设 a > b 的直接后果；把权重倒过来，结论立刻反转。所以正确的说法不是「数学证明了相似重要」，而是：「如果你认为相似的权重是互补的 3.67 倍，那么 s 从 0 拉到 0.6 带来的时长延长就是 c 的 2.61 倍」。模型不产生价值判断，只把假设翻译成可检验的推论。',
+    how: '用任何一条结论之前先问：它是**结构性的**还是**参数性的**？结构性的可以直接用；参数性的必须用自己的数据校准。',
+    notFor: '敏感性分析本质上是内部检验——它只能告诉你「结论对参数多敏感」，不能告诉你「结论对不对」。',
+    tier: 'meta',
+    valid: '方法论层。它给七条「结构性结论」背书：① 最优停止 → 1/e；② 信息量随常见度单调下降；③ 追 Top1% 不占优；④ Chicken 混合纳什填不平坑；⑤ 稳定匹配定理；⑥ 条件连乘 → 指数衰减；⑦ 波动需求按期望值备资源必有一半不足。',
+  },
+  {
+    n: 7, key: 'calibration', emoji: '🔬', title: '对外校验：把实证观测反解成参数，再让模型复现量级',
+    chapter: '方法论 · 外部校准', tagline: '方向全对，量级差了一倍——以及一次自我批评',
+    formula: '经验回应率 21% ↔ 目标比自身高 1.683 个标准差',
+    numbers: [
+      { k: '模型总回应率', v: '50.7%', note: '经验是 < 20%，乐观了一倍多' },
+      { k: '人群平均追高', v: '1.448 个标准差', note: '男性 +26%、女性 +23%（排位口径）' },
+      { k: '校准：回应率 → 20%', v: '容忍度 c = −1.031', note: '门槛被推到 +1.138' },
+      { k: 'Gottman 16.2 / 5.6 年', v: '2.89 ×', note: '反解相似度差 Δs = 0.483' },
+    ],
+    insight: '为了让总回应率落到经验的 20%，只调「容忍度 c」这一个参数——数字对上了，但代价是把出击门槛推到 +1.138：意味着只有自身吸引力在 +1.14 个标准差以上的人才值得开口。**这个荒谬结果本身就是最有价值的发现**：说明模型在低回应率区间的函数形式是错的，不是参数没调好。另有一处必须自我批评：收益函数 γ = 2 给出的 y* = 1.69 与经验反解的 1.683 几乎重合，但 γ = 2 是我看到两个数接近之后才回头挑的——这叫事后一致（post-hoc fit），不叫预测成功。',
+    how: '全篇唯一能真正「用到你身上」的部分——自校准 5 步：① 记 3 个月里你自己发起的每一次接触（对方相对你大概高多少，−2 到 +2 标准分粗估即可；有没有回应），至少 30 条；② 对（差距，是否回应）做逻辑回归 logit(p) = β(x − y + c)，β 大 = 这个市场越「看条件」；③ 估 COST：想一下「发 10 条消息都没成，我大概愿意接受多大代价」；④ 把 β、c、COST 代回 f(y) = y·p(x,y) − COST，数值扫一遍求最优 y*；⑤ 每 3 个月重估一次。',
+    notFor: '如果你估出来的 y* 是「越高越好」，那多半是收益函数定义错了，不是模型在告诉你该追高。',
+    tier: 'meta',
+    valid: '校准层。判据只有一条：参数是被独立校准的，还是为了拟合结果挑的？本报告所有参数目前仍是示意值——这是它最大的弱点。',
+  },
+  {
+    n: 8, key: 'matching', emoji: '💍', title: '匹配：稳定匹配一定存在，而且主动方占优',
+    chapter: '第 4 章', tagline: '主动在数学上严格占优，代价只是可能被拒绝',
+    formula: 'Gale–Shapley 延迟接受：未接受者向还没表白过的最爱表白；被表白者临时接受、遇更好就换',
+    numbers: [
+      { k: '主动方平均第几志愿', v: '5.7', note: '参照完全随机 ln n = 5.30' },
+      { k: '被动方平均第几志愿', v: '35.6', note: '是主动方的 6.26 倍' },
+      { k: '最差的人：主动 vs 被动', v: '30.6 / 172.2', note: '5.64 倍' },
+      { k: '阻塞对（不稳定）实例', v: '0', note: '200 人 × 200 次随机偏好' },
+      { k: 'n=5 枚举「主动方最优」', v: '120 / 120', note: '全部成立' },
+    ],
+    insight: '同一套偏好表、只换「谁主动」：主动方平均拿到第 5.7 志愿，被动方落到第 35.6 志愿。更要命的是尾部——主动方最差也就第 30.6 志愿，被动方最差的人平均要落到第 172.2 志愿。**被动等待不是「省事」，而是自愿接受一个（在所有稳定解里）对自己最差的位置。**注意这不是「主动的人更优秀」——两个匹配同样稳定，差别只来自谁在提出。',
+    how: '把一件「等对方先开口」的事改成「我先开口」——前提只有一个：你承受得起被拒绝。还要区分「提出」和「纠缠」：定理说的是提出权的价值，不是反复施压的价值，提一次、得到明确答复，这个动作就完成了。如果你在一段关系里总是被动接受安排，你可能一直坐在「receiver」那一侧，而这正是你觉得自己「没有选择权」的数学来源。',
+    notFor: '定理前提是偏好完整、双方都能自由拒绝。在权力极不对等（比如职场上下级）的关系里，「提出」的代价分布完全不同，不要外推。',
+    tier: 'strict',
+    valid: '定理级、与任何参数无关。制度级验证：美国住院医师匹配（NRMP）从 1950 年代起就在用，牙科住院、加拿大律师分配、波士顿与纽约学区分配都是同一族机制；Shapley 与 Roth 因此获 2012 年诺贝尔经济学奖。真实教训：NRMP 早期是医院主动，实习医生拿到的就是对自己较差的一组；机制改成申请人主动后，同一批偏好下分配结果反过来。',
+  },
+  {
+    n: 9, key: 'filter', emoji: '🧮', title: '找到真爱的机会有多大：条件是被「乘」的',
+    chapter: '第 1 章', tagline: '候选池是被乘的，不是被减的——最贵的那条往往是你最不肯松的',
+    formula: '合格人数 = 总人口 × p₁ × p₂ × … × pₙ　→ 随条件数指数衰减',
+    numbers: [
+      { k: '2000 万人 × 七条条件', v: '剩 90 人', note: '全条件合格率 4.5e-6' },
+      { k: '一生认真接触 1000 人', v: '碰到一个 0.45%', note: '' },
+      { k: '最贵的两条（有眼缘 / 聊得来）', v: '放开它 × 20.0', note: '各只留 5%' },
+      { k: '去掉这两条（七条 → 五条）', v: '0.45% → 83.50%', note: '合格率 4.5e-6 → 1.8e-3' },
+    ],
+    insight: '七条条件乘下来，池子从 20,000,000 缩到 90 人。但真正的信息在「哪一条最贵」——把某一条完全放开，剩下的人数涨多少倍：「有眼缘」「聊得来」各 **20 倍**，而「性别/性向」虽是 50% 的硬筛，放开它也只涨 2.0 倍。结论不是「所以没希望了」，恰恰相反：**它告诉你该松哪一条。**清单越长越细，池子掉得越快，掉得最快的一定是那些「靠感觉、只看前 5%」的条件——既最贵，又最不该在筛选阶段用。',
+    how: '把条件按「放开它能多多少人」排序，先松掉最前面的那条。好条件的判据：能提前说清、能减少误判（如「不接受异地」）；坏条件的判据：要见到人才能判断、又要求是前百分之几（如「有眼缘」）。前者留，后者挪到后面去用。',
+    notFor: '这是算术恒等、不是实证，可以被推翻的只有各条通过率的取值（全是示意值）。现实里条件之间也不独立（写「喜欢爬山」的人里喜欢看展的比例会偏高），所以真实池子会比这个乘法给出的略大一点。',
+    tier: 'strict',
+    valid: '算术层面无争议——「相乘」和「指数衰减」谁都推翻不了。这是本节最有操作价值的一组数字。',
+  },
+  {
+    n: 10, key: 'decoy', emoji: '🎭', title: '多一个「更差的选项」，反而让你选贵的',
+    chapter: '第 3 章', tagline: '「诱饵效应存在」这件事，本身就是对 IIA 的反证',
+    formula: '标准多项 logit（满足 IIA） vs 相似度加权效用',
+    numbers: [
+      { k: 'Ariely《经济学人》实验', v: '32% → 84%', note: '插入被完全支配的诱饵后' },
+      { k: 'MNL 模型：份额之比', v: '2.054 → 2.054', note: '一丝不变，做不出效应' },
+      { k: '相似度加权模型', v: '68.8% → 78.4%', note: '目标份额上升，效应出现' },
+      { k: '诱饵相似度：目标 / 对手', v: '0.90 / 0.20', note: '机制就在这里' },
+    ],
+    insight: '教科书里最常用的选择模型（MNL）**在数学上做不出这个效应**：加入诱饵后各选项绝对份额都下降（电子版 32.7% → 29.0%，目标 67.3% → 59.6%），但它们之间的比例一丝不变（2.054 → 2.054）——这就是 IIA。所以不是参数没调好，是模型结构决定它做不到。要让效应出现，必须把「选项之间像不像」放进效用：诱饵与目标相似度 0.90、与对手只有 0.20，于是诱饵抬高的是目标。',
+    how: '两层用法：① 你做选择时——先删掉所有「同价但更差」的被支配选项，再看自己会不会改主意；② 你想影响别人的选择时——设计一个与目标相似、但明显更差的「陪衬」，是成本最低的引导手段（这也是它被叫「诱饵」的原因）。',
+    notFor: '这个模型的形状对、幅度不对（复现不出 32% → 84%）。而且诱饵效应不是普遍成立的，它对选项的呈现方式、是否被提示「可以比较」都很敏感。',
+    tier: 'param',
+    valid: '实验可复现、幅度对不上——幅度取决于「相似度怎么进效用」这个示意参数。',
+  },
+  {
+    n: 11, key: 'longtail', emoji: '📊', title: '长尾分布：别用「平均」代表「典型」',
+    chapter: '第 6 章', tagline: '「平均」这个位置，大多数人在它下面',
+    formula: '对数正态分布 → 低于均值的人数占比 = Φ(σ / 2)',
+    numbers: [
+      { k: '中位数（典型值）', v: '7.0', note: 'σ = 1.6，n = 200,000' },
+      { k: '算术平均', v: '25.3', note: '被尾部拉高 3.60 倍' },
+      { k: '前 1% 占掉全部', v: '23.1%', note: '他们平均 584.4' },
+      { k: '低于「平均」的人', v: '78.8%', note: '= 理论 Φ(σ/2) 78.8%' },
+      { k: '切掉前 1% 再算平均', v: '19.7', note: '比原均值低 22.3%' },
+    ],
+    insight: '中位数是 7.0，算术平均却是 25.3。罪魁是最高的那一小撮：前 1% 的人占掉全部的 23.1%。最有用的推论是——**「平均」这个位置，78.8% 的人在它下面**。看到任何「平均」类指标（平均收入、平均伴侣数、平均粉丝数、平均房价），先问一句「中位数是多少」。这也顺带解释了一件反直觉的事：「我的条件比平均好，为什么还是没人理我」——因为判据用错了对象，你的尺子量的是均值，而人群的实际分布是中位数主导的。',
+    how: '描述人群时用中位数；看到「平均」先问中位数。这一条不需要任何参数，换上任何分布形状，「均值骗人」这个结论都不变。',
+    notFor: '中位数 7.0 与 σ = 1.6 是示意参数，换成别的值结论不变；但「低于均值的人占 Φ(σ/2)」只在分布是对数正态时严格成立。',
+    tier: 'strict',
+    valid: '数学上的。模拟值 78.8% 与理论值 78.8% 完全对上——这是全节唯一的独立校验。',
+  },
+  {
+    n: 12, key: 'wedding', emoji: '🪑', title: '婚礼里的两道数学题',
+    chapter: '第 8 章', tagline: '座位用局部搜索，订桌按上分位',
+    formula: '座位 = 图划分（NP-hard，实务用局部搜索）；请柬 = 二项分布',
+    numbers: [
+      { k: '随机分配得分', v: '39', note: '60 人 / 6 桌 / 8 个圈子' },
+      { k: '局部搜索后得分', v: '164', note: '提升 4.19 倍' },
+      { k: '熟人同坐率', v: '80.1%', note: '196 对熟人 → 同桌 157 对' },
+      { k: '请 60 人、p = 0.9', v: '平均到场 54.0', note: '5% 分位 50 / 95% 分位 58' },
+    ],
+    insight: '(a) 随机排座的得分只有优化后的 4.19 分之一；随手交换几百次之后，熟人同坐率到 80.1%。而且这个提升是**免费的**——不需要更多预算、更多时间，只需要换一种排法。现实里最容易被忽略的优化，往往就属于这一类：不改变投入，只改变分配。(b) 按期望值 54.0 人订桌，**有一半的概率不够坐**——因为「不够坐」只要落到中位数以上就发生。要保证 95% 的情况坐得下，得按 58 人订。注意不对称：位子多订只是浪费，少订是当场出事。',
+    how: '排座用「随机初始 + 交换式局部搜索」；订桌/订餐/排班/备货按 95% 分位算，不按平均数。',
+    notFor: '「按上分位备资源」只在多备代价低、少备代价高时成立。如果多备的代价极高（仓库租金、生鲜损耗），那就回到期望值附近、外加一个「售罄」流程。',
+    tier: 'strict',
+    valid: '纯组合数学，没有需要「测量」的参数，两张结论都能直接抄。',
+  },
+];
+
+// ── 怎么用：七张操作卡 ──
+const cards = [
+  { n: 1, title: '37% 法则：定「观察期比例」，不是算日期', model: '模型 1', body: '先估 N（未来一段时间你大概会认真接触多少人，比如一年 10 个）→ 前 37% 只观察、不承诺（N = 10 → 前 3 到 4 个）→ 从第 4 个开始，遇到第一个超过观察期最好水平的人就定。为什么不是「等最好的」：随机挑的成功率是 1/N，37% 法则把它提到 0.3710（N = 100），理论上限是 1/e = 0.367879。', tip: '⚠️ 偏离不对称，这是最该记住的一条：设短了是打折（N=100 时前 30 个对应峰值的 98%），设长了是腰斩（前 70 个只剩 68%）。拿不准就往早的一侧偏。' },
+  { n: 2, title: '资料与开场白：把不筛人的字删掉', model: '模型 2', body: '把形容词全圈出来 → 全删（「幽默」0.478 vs 「滑板」3.507，差 7.34 倍）→ 换成 3 个只有你会写的具体事实。判据：「这句话是不是换个人也能写？」能 → 删。优先级：具体经历 > 具体爱好 > 具体观点 > 形容词。', tip: '⚠️ 具体 ≠ 长。Bruch & Newman 发现发给越受欢迎的人写更长消息几乎没用——具体指的是信息密度，开场白要短一点、具体一点。' },
+  { n: 3, title: '相似 vs 互补：相似是及格线，互补是加分项', model: '模型 3', body: '约会前写下 3 条「不能让」（价值观、金钱观、生活节奏、要不要孩子、和原生家庭的边界），这 3 条就是筛选条件，其余全部当加分项。判据：凡是「我希望对方改」的项目 → 归相似类、当场筛掉；凡是「我欣赏但不必参与」的项目 → 才归互补类。', tip: '⚠️ Gottman：69% 的关系问题是永久性、解决不掉的——所以「以后会好的」「磨合磨合就行」在统计上是低概率事件。' },
+  { n: 4, title: '该追多好的人：提升 x 优先于抬高 y', model: '模型 5', body: '提升自己（x）永远比追更好的人（y）划算——提升 x 会同时抬高你对所有目标的回应率；抬高 y 只会把回应率压下去。目标定在比自己高 1.09 个标准差（x = 0 时），人群层面平均最优差距 1.448 个标准差。', tip: '⚠️ 反例：如果你的场景里一次成功的回报远大于单次出击成本（朋友介绍 vs 发一条消息），那就该更敢追高——γ = 1 时最优 1.09，γ = 2 时 1.69，γ = 3 时 2.23。' },
+  { n: 5, title: '冷战：改机制，不是改「谁更愿意道歉」', model: '模型 4', body: '把 p 从 0.50 调到 0.80，单期收益才从 −0.001 爬到 +0.842，冷战期数从 1.33 降到 1.04——改善有限。真正的解法是相关均衡，由外部信号指定谁让，收益 +1.003，比混合纳什高 +1.005/期，且冷战清零。', tip: '⚠️ 两条一起用：① 事先约定外部规则（这周轮到谁先开口），规则要在不吵架时定好；② 先各自离开 20 分钟等心跳回落，再谈。' },
+  { n: 6, title: '匹配：主动出击在数学上占优（第 4 章）', model: '模型 8', body: '只换「谁主动」：主动方平均落在第 5.7 志愿，被动方落到第 35.6 志愿；主动方最差的人落在第 30.6 志愿，被动方最差的人平均要落到第 172.2 志愿。这不是「主动的人更优秀」——两个匹配同样稳定，差别只来自谁在提出。', tip: '⚠️ 区分「提出」和「纠缠」：提一次、得到明确答复，这个动作就完成了。前提只有一个——你承受得起被拒绝。' },
+  { n: 7, title: '把「平均」换成「中位数」和「上分位」（第 6、8 章）', model: '模型 11 / 12', body: '① 描述人群时用中位数——中位数 7.0、算术平均 25.3、78.8% 的人低于「平均」。② 准备资源时用上分位——请 60 人、到场概率 90%，按期望值 54.0 人订桌有一半概率不够坐，要按 58 人订。', tip: '⚠️ 「按上分位备资源」只在多备代价低、少备代价高时成立；多备代价极高时回到期望值附近，另加一个「售罄」流程。' },
+];
+
+// ── 是否有效：三层 ──
+const layers = [
+  { id: 'A', name: '数学上可证明，与参数无关', who: '1/e 最优停止比例 · Chicken 的混合纳什 p = 0.50 · 相关均衡收益 +1.005/期 · 稳定匹配一定存在且主动方拿到主动方最优解（模型 8） · 条件池相乘 → 指数衰减（模型 9） · 长尾下「低于均值的人数占比」= f(σ)（模型 11） · 「波动需求按期望值备资源必有一半概率不足」（模型 12b）', kill: '推翻不了——只能推翻它的「适用前提」' },
+  { id: 'B', name: '由假设推出，假设在则结论在', who: '「回应率随差距下降 + 每次出击有成本 → 追 Top 1% 不占优」 · 「混合纳什永远填不平那个坑」 · 「诱饵效应要出现，必须让相似度进入效用（标准 MNL 满足 IIA，做不出来）」', kill: '换掉假设就反转（把成本项去掉、把相似度权重归零）' },
+  { id: 'C', name: '依赖「示意参数」', who: '相似/互补的量级差 · 出击门槛的具体位置 · 期望关系年数的绝对值 · 模型 9 里七条条件的通过率取值 · 模型 10 里诱饵效应的幅度 · 模型 11 的中位数与 σ · 模型 12 的到场概率', kill: '能推翻——见敏感性分析' },
+];
+
+// ── 逐模型对照实证（节选最有信息量的几行）──
+const evidence = [
+  { m: '模型 1 最优停止', ev: '实验室能复现（秘书问题），但真实恋爱市场没有「n 已知 + 不可回头 + 只能相对比较」的可靠数据', verdict: '数学最硬 / 经验最弱', note: '那 37% 是结构参考，不是操作指令' },
+  { m: '模型 2 信息量', ev: 'Bruch & Newman 大样本：措辞越积极的消息回应率越低；发给越受欢迎的人写更长消息几乎没用', verdict: '方向一致', note: '支持「不筛人的表达 = 低信息量」' },
+  { m: '模型 3 相似 vs 互补', ev: 'Gottman：69% 的关系问题是永久性、解决不掉的；四骑士型平均 5.6 年 vs 情感抽离型 16.2 年', verdict: '方向一致 / 数字有争议', note: '2.89 倍反解出相似度差 0.483，不离谱' },
+  { m: '模型 4 冷战', ev: 'Gottman 的 20 分钟生理冷静实验（心跳回落后再谈，讨论质量显著改变）', verdict: '机制有实验支持', note: '博弈论部分本身是定义性的，不怕数据' },
+  { m: '模型 5 吸引力', ev: 'Bruch & Newman：回应率随差距单调下降；发给更受欢迎女性的回应率从未超过 21%；男性平均向排位高 26%、女性 23% 的人出手', verdict: '方向全对 / 量级对不上', note: '本报告唯一做了外部校准的模型' },
+  { m: '模型 8 稳定匹配', ev: '美国住院医师匹配（NRMP）1950 年代起在用；牙科住院、加拿大律师分配、波士顿与纽约学区分配同族机制；Shapley 与 Roth 获 2012 诺奖', verdict: '制度级验证', note: '定理本身不需要数据' },
+  { m: '模型 10 诱饵效应', ev: 'Ariely《经济学人》订阅实验：两选项时目标 32%，插入被完全支配的诱饵后 84%', verdict: '实验可复现 / 幅度对不上', note: '幅度取决于「相似度怎么进效用」' },
+  { m: '模型 11 长尾', ev: '收入、城市规模、社交连接数、伴侣数量都是公认的长尾分布；用「平均数」描述长尾变量是统计教科书里的标准错误', verdict: '统计常识', note: '模拟 78.8% 与理论 Φ(σ/2) 完全对上' },
+];
+
+const paramsNote = '模型 3 的 a、b 与模型 5 的 β、c、COST、模型 9 的七条通过率、模型 10 的相似度与尺度、模型 11 的中位数与 σ、模型 12 的到场概率均为示意值，只用于比较效应量级，不代表真实人群的测量结果。不含自由参数的是：模型 1、2，模型 4 的支付矩阵，模型 8 的稳定匹配定理，模型 9 的「相乘」结构，模型 10 的 IIA 结论，模型 12 的全部结论。';
+---
+
+<SiteHeader lang="zh" series="心动解码" />
+<main class="lm">
+  <p class="kicker">✦ 九章 · 十二个模型 · 全部数字现算</p>
+  <h1>爱情数学：把《爱情数学》九章做成可计算的十二个模型</h1>
+  <p class="meta">Hannah Fry《爱情数学》(The Mathematics of Love) 全书重点的可计算化 · 全部数字由 <code>compute_models.py</code> 现算（seed = 20260923）· 无手写</p>
+
+  <script is:inline>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+
+  <div class="lede">
+    <p><b>一句话结论：</b>这本书是九章，不是「四个模型」。把每一章的重点写成有明确目标函数、可求最优解、且结论能被数值模拟验证的数学模型之后，会看到四件事：</p>
+    <ol>
+      <li><b>37% 不是心灵鸡汤</b>——它是 n → ∞ 时最优比例收敛到的 1/e ≈ 0.368，成功率也恰好是这个数。</li>
+      <li><b>关系能不能长，相似性权重要远大于互补性</b>——相似度拉满延 7.2 倍、互补度拉满只延 1.72 倍。</li>
+      <li><b>「追最好的人」在数学上从不占优</b>——因为漏掉了一个常被忽略的变量：出击成本。</li>
+      <li><b>全书唯一一条定理级结论在第 4 章</b>——稳定匹配一定存在，而且主动提出的一方拿到的是「所有稳定匹配里对自己最好的那一个」。主动在数学上严格占优，代价只是可能被拒绝。</li>
+    </ol>
+  </div>
+
+  <nav class="tabs" id="tabs" aria-label="内容切换">
+    <button class="tab on" data-tab="models" type="button">🧩 十二个模型</button>
+    <button class="tab" data-tab="chapters" type="button">📖 九章速览</button>
+    <button class="tab" data-tab="howto" type="button">🛠 怎么用</button>
+    <button class="tab" data-tab="valid" type="button">🔬 是否有效</button>
+    <button class="tab" data-tab="source" type="button">📐 数据与复现</button>
+    <a class="tab quiz-cta" href={`${base}love-type/`}>🧬 做测试：你是哪一型 →</a>
+  </nav>
+
+  <!-- ── TAB 1：十二个模型 ── -->
+  <section class="panel on" id="tab-models">
+    <p class="hint">👇 点选任意一个模型，右侧（手机上为下方）会展开它的<b>数学形式 / 能算出来的数 / 关键洞见 / 怎么用 / 什么时候别用 / 可信度</b>。</p>
+    <div class="m-layout">
+      <div class="m-list" id="m-list" role="tablist" aria-label="模型列表">
+        {models.map((m) => (
+          <button class="m-item" type="button" data-key={m.key} role="tab" aria-selected="false">
+            <span class="m-no">{m.n.toString().padStart(2, '0')}</span>
+            <span class="m-emoji">{m.emoji}</span>
+            <span class="m-name">{m.title.split('：')[0]}</span>
+            <span class={`dot t-${m.tier}`} title={m.tier}></span>
+          </button>
+        ))}
+      </div>
+      <div class="m-detail" id="m-detail">
+        {models.map((m) => (
+          <article class="m-card" data-key={m.key} hidden>
+            <header class="m-head">
+              <span class="m-badge">{m.emoji} 模型 {m.n}</span>
+              <span class="m-ch">{m.chapter}</span>
+            </header>
+            <h3>{m.title}</h3>
+            <p class="m-tagline">{m.tagline}</p>
+            <div class="m-formula"><span class="f-label">数学形式</span><code>{m.formula}</code></div>
+            <div class="m-nums">
+              {m.numbers.map((x) => (
+                <div class="kv">
+                  <span>{x.k}</span>
+                  <b>{x.v}</b>
+                  {x.note && <em>{x.note}</em>}
+                </div>
+              ))}
+            </div>
+            <div class="block why"><span class="b-label">🔍 关键洞见</span><p set:html={m.insight.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')}></p></div>
+            <div class="block use"><span class="b-label">🛠 怎么用</span><p set:html={m.how.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')}></p></div>
+            <div class="block stop"><span class="b-label">🚩 什么时候别用</span><p>{m.notFor}</p></div>
+            <div class={`block vd vd-${m.tier}`}><span class="b-label">🎯 是否有效</span><p set:html={m.valid.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')}></p></div>
+          </article>
+        ))}
+      </div>
+    </div>
+    <p class="tier-legend">可信度标记：<span class="lg"><span class="dot t-strict"></span>严格（与参数无关）</span><span class="lg"><span class="dot t-assumption"></span>假设（假设在则结论在）</span><span class="lg"><span class="dot t-param"></span>参数（依赖示意值）</span><span class="lg"><span class="dot t-meta"></span>方法论（校准/敏感性）</span></p>
+  </section>
+
+  <!-- ── TAB 2：九章速览 ── -->
+  <section class="panel" id="tab-chapters">
+    <p class="hint">《爱情数学》原书九章 → 本报告对应的模型。点选章节展开它的模型索引。</p>
+    <div class="ch-wrap" id="ch-wrap">
+      {chapters.map((c) => (
+        <div class="ch-item" data-models={c.models.join(',')}>
+          <div class="ch-top">
+            <span class="ch-no">第 {c.no} 章</span>
+            <span class="ch-name">{c.name}</span>
+            <span class="ch-models">
+              {c.models.map((x) => (<button class="pill" type="button" data-model={x}>模型 {x}</button>))}
+            </span>
+          </div>
+          <p class="ch-note">{c.note}</p>
+        </div>
+      ))}
+    </div>
+    <div class="note-card">第 2 章「容貌」是全书九章里唯一没有单独建模的一章——它需要的是图像数据，不是一个可解析的目标函数。本报告用模型 2（信息量）覆盖它相邻的「资料里该写什么」这一层。</div>
+  </section>
+
+  <!-- ── TAB 3：怎么用 ── -->
+  <section class="panel" id="tab-howto">
+    <div class="lede small">
+      <p><b>总用法：</b>把这些模型当<b>决策规则</b>用，不要当<b>预测器</b>用。它们不会告诉你「这个人会不会喜欢你」；它们告诉你的是——在什么情况下，什么样的策略更容易成、什么样的说法其实是自欺。</p>
+    </div>
+    <div class="cards">
+      {cards.map((c) => (
+        <details class="op-card">
+          <summary><span class="op-no">卡 {c.n}</span><span class="op-title">{c.title}</span><span class="op-model">{c.model}</span></summary>
+          <p class="op-body">{c.body}</p>
+          <p class="op-tip">{c.tip}</p>
+        </details>
+      ))}
+    </div>
+
+    <h2 class="sub-h">🧭 自校准：用你自己的数据估 β 和 COST</h2>
+    <p class="plain">这是全篇唯一能真正「用到你身上」的部分——参数没有普适值，但你自己的数据可以估出来。</p>
+    <table class="t">
+      <thead><tr><th>步骤</th><th>做什么</th><th>注意</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>记 3 个月里你自己发起的每一次接触：① 对方相对你大概高多少（−2 到 +2 标准分，粗估即可）② 有没有回应</td><td>至少 30 条，不然估不出来</td></tr>
+        <tr><td>2</td><td>对（差距，是否回应）做逻辑回归：logit(p) = β(x − y + c)</td><td>β 大 = 这个市场越「看条件」</td></tr>
+        <tr><td>3</td><td>估 COST：想一下「发 10 条消息都没成，我大概愿意接受多大代价」，换算成一个吸引力单位的数</td><td>这是主观值，用你自己的感受</td></tr>
+        <tr><td>4</td><td>把 β、c、COST 代回 f(y) = y·p(x,y) − COST，数值求最优 y*</td><td>一条 python3 命令就能扫一遍</td></tr>
+        <tr><td>5</td><td>每 3 个月重估一次</td><td>因为你的 x 在变，市场也在变</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="sub-h">✅ 今天就做的五件事</h2>
+    <ul class="todo">
+      <li>把资料里的形容词删掉，换 3 个只有你会写的具体事实。</li>
+      <li>写下 3 条「不能让」，在任何一次「要不要继续」的判断之前先看一眼。</li>
+      <li>和一个重要的人约定一个「谁先让」的外部规则——趁现在不吵架。</li>
+      <li>把「让自己更好」和「追更好的人」排个序：数学上前者永远优先。</li>
+      <li>把一件「等对方先开口」的事，改成「我先开口」——主动方的匹配结果在数学上严格更优，代价只是可能被拒绝。</li>
+    </ul>
+
+    <div class="note-card warn">🚩 <b>这个模型不能替你做的三件事：</b>① 不能预测某个具体的人会不会喜欢你——它算的是人群层面的概率，不是个体判断；② 不能替你判断「这个人好不好」——模型里的 y 是「市场受欢迎程度」，而「受欢迎」和「合适」是两件事；③ 最优策略 ≠ 最好的关系——最优停止最大化的是「选中最好的那个」的概率，不是「在一起之后过得好」的概率，这两个目标可以冲突。</div>
+  </section>
+
+  <!-- ── TAB 4：是否有效 ── -->
+  <section class="panel" id="tab-valid">
+    <div class="lede small"><p>「这个模型有效吗」必须先拆开，否则任何回答都是耍流氓。<b>有效性至少分三层</b>，同一个模型完全可以在第一层成立、在第三层不成立。</p></div>
+    <div class="layers">
+      {layers.map((l) => (
+        <div class={`layer l-${l.id}`}>
+          <div class="l-head"><span class="l-id">{l.id}</span><span class="l-name">{l.name}</span></div>
+          <p class="l-who">{l.who}</p>
+          <p class="l-kill"><b>什么能推翻它：</b>{l.kill}</p>
+        </div>
+      ))}
+    </div>
+    <p class="plain">一句话：越靠上越可信，越靠下越要自己校准。下面拿真实数据逐条对一遍。</p>
+
+    <h2 class="sub-h">一、逐模型对照实证</h2>
+    <table class="t wide">
+      <thead><tr><th>模型</th><th>外部证据</th><th>对得上吗</th><th>说明</th></tr></thead>
+      <tbody>
+        {evidence.map((e) => (
+          <tr><td class="td-m">{e.m}</td><td>{e.ev}</td><td class="td-v">{e.verdict}</td><td>{e.note}</td></tr>
+        ))}
+      </tbody>
+    </table>
+
+    <h2 class="sub-h">二、模型 5 的定量对照：方向全对，量级差了一倍</h2>
+    <table class="t">
+      <thead><tr><th>对照项</th><th>本报告模型</th><th>Bruch &amp; Newman 2018</th><th>判断</th></tr></thead>
+      <tbody>
+        <tr><td>回应率随差距下降</td><td>单调：39.1% → 10.3%</td><td>单调下降</td><td class="g">一致</td></tr>
+        <tr><td>消息向高分位集中</td><td>Top 10% 收 70.8%</td><td>少数人收走大部分首条消息</td><td class="g">一致</td></tr>
+        <tr><td>人群平均向上追</td><td>平均差距 1.448 个标准差</td><td>男性 +26%、女性 +23%（排位口径）</td><td class="amber">口径不可直接比</td></tr>
+        <tr class="hi"><td>回应的绝对水平</td><td>总回应率 50.7%</td><td>女性平均 &lt; 20%</td><td class="r">差一倍以上</td></tr>
+        <tr><td>追高者的回应率</td><td>差距 1.683 处为 21.0%</td><td>上限 21%</td><td class="g">数字吻合</td></tr>
+      </tbody>
+    </table>
+    <div class="note-card warn">⚠️ <b>口径警告：</b>经验研究用的是排位（rank），本报告用的是标准分。在人群中段两者近似线性，但在高分位会严重发散（排位前 1% 对应好几个标准差）——所以那两行不能直接相减，只能比「方向」。把一个模型的输出和另一个口径的统计量相减，是数据对比里最常见的错。</div>
+    <div class="note-card warn">🚨 <b>这个荒谬的结果本身就是最有价值的发现：</b>为了把总回应率校准到经验的 20%，只调「容忍度 c」（0.80 → −1.031），却把出击门槛从 −0.736 推到 +1.138——意味着只有自身吸引力在 +1.14 个标准差以上的人才值得主动开口，其他人都不该说话。这说明模型在这个区间的<b>函数形式是错的，不是参数没调好</b>。错在哪：f(y) = y·p − COST 里成本是固定值、收益线性正比于 y，而现实里发一条消息的成本极低、收益也不是「对方多好」而是「成了」这件事本身。</div>
+
+    <h2 class="sub-h">三、一次「事后一致」，以及自我批评</h2>
+    <p class="plain">把「回应率 21%」反解回目标差距，得到 1.683。而把收益定义改成 y<sup>γ</sup>·p 时，γ = 2 给出的最优目标是 1.69——两个数字几乎重合，却来自完全不同的方向。</p>
+    <div class="note-card warn">🚨 <b>但必须自己指出这一点：</b>γ = 2 是看到这两个数接近之后才回头挑的。这正是要批判的那种错误——在同一份数据上挑参数，然后宣称模型有效。诚实的说法是：模型并没有回答「为什么 γ 应该是 2」，它只告诉我们「人群的实际行为等价于 γ ≈ 2」。这件事叫 <b>事后一致（post-hoc fit）</b>，不叫预测成功。</div>
+
+    <h2 class="sub-h">四、必须讲的失败案例：Gottman 的 90%</h2>
+    <p class="plain">关系科学里最著名的「有效模型」，刚好是最好的反面教材。</p>
+    <ul class="bullets">
+      <li>Gottman 宣称能以超过 90% 的准确率预测离婚；其中一篇报告 94%（Buehlman / Gottman / Katz 1992）。</li>
+      <li>但那一篇的样本是：52 对夫妻、<b>7 对离婚</b>、<b>9 个预测变量</b>——9 个变量去分 7 个事件。</li>
+      <li>更要命的是方法：研究者先知道谁离了婚，再用早期测量的变量拟合一个能分开两组的模型，然后在同一批人身上打分。这个流程不可能打不出高分——它不是预测，是描述。</li>
+    </ul>
+    <table class="t">
+      <thead><tr><th>指标（Heyman &amp; Smith Slep 2001，n = 528）</th><th>拟合自身数据</th><th>换到新样本</th></tr></thead>
+      <tbody>
+        <tr><td>整体准确率</td><td>90%</td><td class="r">69%</td></tr>
+        <tr><td>敏感度（真会离的能不能抓出来）</td><td>92%</td><td class="r">46%</td></tr>
+        <tr><td>阳性预测值（说会离时有多准）</td><td>65%</td><td class="r">29%</td></tr>
+        <tr class="hi"><td>按真实离婚基础率 16% 调整后的阳性预测值</td><td>—</td><td class="r">21%</td></tr>
+      </tbody>
+    </table>
+    <p class="plain">最后一行是关键：当模型说「这对夫妻会离婚」时，它<b>四次里错近三次</b>。一个看起来 90% 准确的模型，实际使用时接近抛硬币。这就是本报告给模型 5 做外部校准、而不是只做内部敏感性的原因：在自家数据上算得漂亮是廉价的。</p>
+
+    <h2 class="sub-h">五、所以，怎么判断一个「关系 / 行为模型」可不可信</h2>
+    <ol class="bullets num">
+      <li><b>它有没有给出可证伪的推论？</b>「37% 法则」可证伪——偏离它有确定的代价，代价大小可以算出来；「两个人要多沟通」不可证伪，因为没有任何观察能反驳它。</li>
+      <li><b>参数是被独立校准的，还是为了拟合结果挑的？</b>本报告的 β、c、COST、a、b 全都还是示意值——这是最大的弱点。</li>
+      <li><b>做过 out-of-sample 测试吗？</b>做过的是 Bruch &amp; Newman（四城互相验证、样本从 9113 到 50618）；没做的是 Gottman 的 90%。</li>
+    </ol>
+    <div class="note-card">📌 <b>本报告自评：</b>模型 1、4 在「可证伪 + 数学自洽」上最强，但经验支撑最弱；模型 5 经验支撑最强，但参数没校准、外推不可靠；模型 2、3 介于两者之间。<b>没有一个模型可以直接拿来做预测</b>——它们能做的是把话说清楚、把假设摆出来。</div>
+  </section>
+
+  <!-- ── TAB 5：数据与复现 ── -->
+  <section class="panel" id="tab-source">
+    <h2 class="sub-h">口径与复现</h2>
+    <p class="plain">本文所有数字均由 <code>compute_models.py</code>（纯标准库、固定种子 <code>seed=20260923</code>）现算，无手写。</p>
+    <pre class="code"><code>python3 compute_models.py &gt; result.txt   # 逐行核对上表
+python3 build_report.py                 # 重新生成本页数据</code></pre>
+    <h2 class="sub-h">参数性质</h2>
+    <p class="plain">{paramsNote}</p>
+    <h2 class="sub-h">数据与计算的分工</h2>
+    <p class="plain">数字有两个来源，各自只有一个出处：自算数字（模型输出）的唯一出处是 <code>compute_models.py</code>，随 <code>result.txt</code> 逐行可核；外部实证数字（文献引用）的唯一出处是脚本顶部的 LIT 表。正文里不允许手写任何一个数字——自检会把文中每个小数、每个百分数同时去这两处比对，两边都找不到即报错。</p>
+    <h2 class="sub-h">外部实证来源</h2>
+    <ul class="bullets">
+      <li>Bruch &amp; Newman (2018), PNAS 115(35) —— 在线约会四城大样本。</li>
+      <li>Gottman 系列（含 Buehlman, Gottman &amp; Katz 1992）；注意 Carrère &amp; Gottman 1999 并未报告一个总体预测准确率。</li>
+      <li>Heyman &amp; Smith Slep (2001), Journal of Family and Marriage 63(2), 473–479 —— 交叉验证下的准确率衰减。</li>
+    </ul>
+    <h2 class="sub-h">参考</h2>
+    <p class="plain">Hannah Fry，《爱情数学》(The Mathematics of Love)，2015（共九章）。最优停止问题的最优性（1/e）自 1960 年代起即为经典结论（秘书问题 / Chow–Robbins–Siegmund）；稳定匹配与延迟接受算法出自 Gale &amp; Shapley (1962), American Mathematical Monthly 69(1)；市场设计方向的扩展（含美国住院医师匹配 NRMP）以 Shapley 与 Roth 获 2012 年诺贝尔经济学奖为标志；诱饵效应与 IIA 的经典讨论见 Ariely《怪诞行为学》(2008) 与 Huber, Payne &amp; Puto (1982)；长尾与均值陷阱的标准结论见任何一本概率论教材的对数正态一节。</p>
+  </section>
+
+  <section class="engage">
+    <p class="engage-tip">这篇把九章拆成了能算的十二个模型，觉得有用，欢迎请作者喝杯咖啡 ☕️</p>
+    <div class="reward">
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/alipay.png`} alt="支付宝收款码" loading="lazy" /></div>
+        <p>支付宝</p>
+      </div>
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/wechat.png`} alt="微信收款码" loading="lazy" /></div>
+        <p>微信</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot-note">⚠️ 本文为读书笔记与自建模型的复现，不构成心理学、心理咨询或专业建议。所有含「示意参数」的结论请自行校准后再用。</p>
+</main>
+
+<script is:inline>
+  (function () {
+    // ── TAB 切换 ──
+    var tabs = document.querySelectorAll('.tab[data-tab]');
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () {
+        var id = t.getAttribute('data-tab');
+        tabs.forEach(function (x) { x.classList.toggle('on', x === t); });
+        document.querySelectorAll('.panel').forEach(function (p) {
+          p.classList.toggle('on', p.id === 'tab-' + id);
+        });
+        if (id === 'models') ensureModel();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    // ── 模型点选 ──
+    var items = document.querySelectorAll('.m-item');
+    var cards = document.querySelectorAll('.m-card');
+    function pick(key) {
+      items.forEach(function (it) {
+        var on = it.getAttribute('data-key') === key;
+        it.classList.toggle('on', on);
+        it.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      cards.forEach(function (c) { c.hidden = c.getAttribute('data-key') !== key; });
+      try { history.replaceState(null, '', '#' + key); } catch (e) {}
+    }
+    var ensured = false;
+    function ensureModel() {
+      if (ensured) return;
+      ensured = true;
+      var h = (location.hash || '').replace('#', '');
+      var ok = false;
+      cards.forEach(function (c) { if (c.getAttribute('data-key') === h) ok = true; });
+      pick(ok ? h : 'stop');
+    }
+    items.forEach(function (it) {
+      it.addEventListener('click', function () { pick(it.getAttribute('data-key')); });
+    });
+    ensureModel();
+
+    // ── 章节里的「模型 N」小药丸 → 跳到对应模型 ──
+    document.querySelectorAll('.pill[data-model]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var n = parseInt(b.getAttribute('data-model'), 10);
+        var target = null;
+        cards.forEach(function (c) {
+          var t = c.querySelector('.m-badge');
+          if (t && t.textContent.indexOf('模型 ' + n) >= 0) target = c.getAttribute('data-key');
+        });
+        var tab = document.querySelector('.tab[data-tab="models"]');
+        if (tab) tab.click();
+        if (target) pick(target);
+      });
+    });
+  })();
+</script>
+
+<style is:global>
+  :root { --bg-url: url('/love-blog/24solar-bg.png'); }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: var(--bg-url); background-size: cover; background-position: center top;
+    background-repeat: no-repeat; opacity: 0.13; z-index: -1; pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  :root[data-theme="dark"] body::before { opacity: 0.08; }
+  :root[data-theme="dark"] .m-item.on { background: rgba(255,111,165,0.12) !important; }
+</style>
+
+<style>
+  .lm { max-width: 900px; margin: 0 auto; padding: 36px 20px 64px; }
+  .kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 8px; }
+  .lm h1 { font-size: 29px; line-height: 1.35; margin: 0 0 8px; letter-spacing: .2px; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 20px; line-height: 1.7; }
+  code { background: var(--code-bg); padding: 1.5px 6px; border-radius: 4px; font-size: .88em; }
+
+  .lede { background: var(--code-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 16px 20px; margin: 0 0 22px; }
+  .lede p { margin: 0 0 8px; }
+  .lede.small { padding: 12px 16px; }
+  .lede ol { margin: 6px 0 0; padding-left: 20px; }
+  .lede li { margin: 6px 0; line-height: 1.7; }
+  .lede b { color: var(--accent); }
+
+  /* tab 栏 */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; }
+  .tab { padding: 8px 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--fg); font-size: 14px; cursor: pointer; transition: .18s; text-decoration: none; }
+  .tab:hover { border-color: var(--accent); color: var(--accent); }
+  .tab.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .tab.quiz-cta { margin-left: auto; border-style: dashed; color: var(--accent); }
+
+  .panel { display: none; }
+  .panel.on { display: block; animation: fade .28s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .hint { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+  .plain { color: var(--fg); font-size: 15px; line-height: 1.8; margin: 12px 0; }
+  .sub-h { font-size: 19px; margin: 34px 0 10px; border-left: 4px solid var(--accent); padding-left: 10px; }
+
+  /* 模型区 */
+  .m-layout { display: grid; grid-template-columns: 258px 1fr; gap: 18px; align-items: start; }
+  .m-list { display: flex; flex-direction: column; gap: 6px; position: sticky; top: 76px; }
+  .m-item { display: flex; align-items: center; gap: 8px; text-align: left; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 13.5px; transition: .15s; }
+  .m-item:hover { border-color: var(--accent); }
+  .m-item.on { border-color: var(--accent); background: rgba(224,69,123,0.08); font-weight: 600; }
+  .m-no { color: var(--accent); font-weight: 800; font-variant-numeric: tabular-nums; font-size: 12.5px; flex: none; }
+  .m-emoji { flex: none; }
+  .m-name { flex: 1; line-height: 1.35; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .t-strict { background: #16a34a; }
+  .t-assumption { background: #d97706; }
+  .t-param { background: #dc2626; }
+  .t-meta { background: #6366f1; }
+  .tier-legend { margin-top: 18px; color: var(--muted); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 14px; }
+  .tier-legend .lg { display: inline-flex; align-items: center; gap: 5px; }
+
+  .m-card { border: 1px solid var(--border); border-radius: 12px; padding: 20px; background: var(--bg); }
+  .m-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .m-badge { background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+  .m-ch { color: var(--muted); font-size: 12.5px; }
+  .m-card h3 { font-size: 20px; margin: 4px 0 6px; }
+  .m-tagline { color: var(--accent); font-size: 14.5px; margin: 0 0 14px; font-weight: 600; }
+  .m-formula { background: var(--code-bg); border: 1px dashed var(--border); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; }
+  .f-label { display: block; color: var(--muted); font-size: 11.5px; margin-bottom: 3px; letter-spacing: 1px; }
+  .m-formula code { background: none; padding: 0; font-size: 13px; }
+  .m-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 9px; margin: 0 0 16px; }
+  .kv { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; }
+  .kv span { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+  .kv b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; margin: 1px 0; }
+  .kv em { display: block; color: var(--muted); font-size: 11.5px; font-style: normal; }
+  .block { border-radius: 8px; padding: 11px 14px; margin: 0 0 10px; font-size: 14px; line-height: 1.75; }
+  .block p { margin: 4px 0 0; }
+  .b-label { font-size: 12.5px; font-weight: 700; color: var(--muted); letter-spacing: .5px; }
+  .why { background: var(--code-bg); }
+  .use { background: rgba(224,69,123,0.06); border-left: 3px solid var(--accent); }
+  .stop { background: rgba(220,38,38,0.05); border-left: 3px solid #dc2626; }
+  .vd { background: rgba(22,163,74,0.05); border-left: 3px solid #16a34a; }
+  .vd-param { background: rgba(220,38,38,0.05); border-left: 3px solid #dc2626; }
+  .vd-assumption { background: rgba(217,119,6,0.06); border-left: 3px solid #d97706; }
+  .vd-meta { background: rgba(99,102,241,0.06); border-left: 3px solid #6366f1; }
+  .lm b { color: var(--accent); }
+
+  /* 章节 */
+  .ch-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .ch-item { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 14px 16px; background: var(--bg); }
+  .ch-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .ch-no { color: var(--accent); font-weight: 800; font-size: 13px; }
+  .ch-name { font-weight: 700; font-size: 16.5px; }
+  .ch-models { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { font-size: 12px; padding: 2px 10px; border-radius: 999px; border: 1px dashed var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
+  .pill:hover { background: var(--accent); color: #fff; }
+  .ch-note { margin: 7px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.7; }
+
+  /* 操作卡 */
+  .cards { display: flex; flex-direction: column; gap: 10px; }
+  .op-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; background: var(--bg); }
+  .op-card[open] { border-color: var(--accent); }
+  .op-card summary { display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; font-size: 15.5px; }
+  .op-card summary::-webkit-details-marker { display: none; }
+  .op-no { color: #fff; background: var(--accent); font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; flex: none; }
+  .op-title { font-weight: 600; flex: 1; }
+  .op-model { color: var(--muted); font-size: 12px; flex: none; }
+  .op-body { margin: 12px 0 6px; font-size: 14.5px; line-height: 1.8; }
+  .op-tip { margin: 0; font-size: 13.5px; color: var(--fg); background: var(--code-bg); border-radius: 8px; padding: 10px 12px; line-height: 1.7; }
+
+  /* 表格 */
+  .t { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0; }
+  .t th, .t td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; line-height: 1.65; }
+  .t th { background: var(--code-bg); color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .t tr.hi td { background: rgba(224,69,123,0.06); font-weight: 600; }
+  .td-m { white-space: nowrap; font-weight: 600; }
+  .td-v { white-space: nowrap; }
+  .g { color: #15803d; font-weight: 600; }
+  .r { color: #dc2626; font-weight: 600; }
+  .amber { color: #b45309; font-weight: 600; }
+  :root[data-theme="dark"] .g { color: #4ade80; }
+  :root[data-theme="dark"] .r { color: #f87171; }
+  :root[data-theme="dark"] .amber { color: #fbbf24; }
+
+  /* 三层有效性 */
+  .layers { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+  .layer { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--bg); }
+  .l-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .l-id { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 14px; flex: none; }
+  .l-A .l-id { background: #16a34a; }
+  .l-B .l-id { background: #d97706; }
+  .l-C .l-id { background: #dc2626; }
+  .l-A { border-left: 4px solid #16a34a; }
+  .l-B { border-left: 4px solid #d97706; }
+  .l-C { border-left: 4px solid #dc2626; }
+  .l-name { font-weight: 700; font-size: 15.5px; }
+  .l-who { margin: 4px 0; font-size: 13.5px; line-height: 1.75; color: var(--fg); }
+  .l-kill { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  .note-card { background: var(--code-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; font-size: 14px; line-height: 1.8; }
+  .note-card.warn { border-left-color: #d97706; background: rgba(217,119,6,0.07); }
+  .bullets { padding-left: 22px; margin: 12px 0; }
+  .bullets li { margin: 7px 0; line-height: 1.8; font-size: 14.5px; }
+  .bullets.num { padding-left: 22px; }
+  .todo { padding-left: 22px; margin: 12px 0; }
+  .todo li { margin: 7px 0; line-height: 1.8; }
+  .code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow: auto; font-size: 13px; line-height: 1.7; }
+  .code code { background: none; padding: 0; }
+
+  .engage { margin-top: 42px; padding-top: 26px; border-top: 1px solid var(--border); text-align: center; }
+  .engage-tip { color: var(--fg); font-size: 15px; margin: 0 0 16px; }
+  .reward { display: flex; gap: 24px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .reward-col { text-align: center; }
+  .reward-qr { width: 120px; height: 120px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--code-bg); overflow: hidden; }
+  .reward-qr img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .reward-col p { margin: 8px 0 0; font-size: 14px; }
+  .foot-note { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; line-height: 1.7; }
+
+  @media (max-width: 720px) {
+    .m-layout { grid-template-columns: 1fr; }
+    .m-list { position: static; flex-direction: row; overflow-x: auto; padding-bottom: 6px; }
+    .m-item { flex: none; }
+    .m-name { white-space: nowrap; }
+    .tab.quiz-cta { margin-left: 0; }
+    .t { font-size: 12.5px; }
+    .t th, .t td { padding: 6px 8px; }
+  }
+</style>

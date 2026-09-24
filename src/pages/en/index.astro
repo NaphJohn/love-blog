@@ -43,6 +43,26 @@ const freeCount = chapters.filter((c) => c.free).length;
     ))}
   </ol>
 
+  <section class="labs">
+    <p class="labs-kicker">✦ Interactive (中文)</p>
+    <a class="lab" href={`${base}love-math/`}>
+      <span class="lab-ico">🧩</span>
+      <span class="lab-body">
+        <span class="lab-t">爱情数学：九章 × 十二个模型</span>
+        <span class="lab-d">The Mathematics of Love — 9 chapters turned into 12 computable models, each with numbers / how to use / when not to use / does it work.</span>
+      </span>
+      <span class="lab-go">→</span>
+    </a>
+    <a class="lab" href={`${base}love-type/`}>
+      <span class="lab-ico">🧬</span>
+      <span class="lab-body">
+        <span class="lab-t">四型人格测试</span>
+        <span class="lab-d">20 questions → Explorer / Builder / Director / Negotiator, with instant results and dating tells.</span>
+      </span>
+      <span class="lab-go">→</span>
+    </a>
+  </section>
+
   <section class="engage">
     <p class="engage-tip">Found these useful? Buy the author a coffee ☕️</p>
     <div class="reward">
@@ -94,6 +114,15 @@ const freeCount = chapters.filter((c) => c.free).length;
   .tag.paid { background: rgba(214,48,49,0.12); color: #d63031; }
   .desc { width: 100%; color: var(--muted); font-size: 13px; margin: 4px 0 0; }
   .engage { margin-top: 30px; padding: 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--code-bg); text-align: center; }
+  .labs { margin-top: 30px; }
+  .labs-kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 10px; }
+  .lab { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; margin-bottom: 12px; text-decoration: none; color: var(--fg); transition: .16s; }
+  .lab:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .lab-ico { font-size: 28px; flex: none; }
+  .lab-body { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .lab-t { font-weight: 700; font-size: 17px; }
+  .lab-d { color: var(--muted); font-size: 13px; line-height: 1.7; }
+  .lab-go { flex: none; color: var(--accent); font-size: 13.5px; font-weight: 600; }
   .engage-tip { color: var(--fg); font-size: 15px; margin: 0 0 14px; }
   .reward { display: flex; gap: 24px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
   .reward-col { text-align: center; }

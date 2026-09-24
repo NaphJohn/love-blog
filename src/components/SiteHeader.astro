@@ -11,6 +11,8 @@ const altHrefFull = altHref ? base + altHref.replace(/^\//, '') : undefined;
   <a href={homeHref} class="brand">{siteName}</a>
   <nav>
     {series && <a href={seriesHref}>{series}</a>}
+    {lang === 'zh' && <a href={`${base}love-math/`} class="nav-lab">爱情数学</a>}
+    {lang === 'zh' && <a href={`${base}love-type/`} class="nav-lab">人格测试</a>}
     {altHrefFull ? (
       <span class="lang-switch">
         {lang === 'zh'
