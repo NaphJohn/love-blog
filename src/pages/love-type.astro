@@ -185,6 +185,10 @@ const quiz = [
     })();
   </script>
 
+  <div class="bound">
+    <b>⚠️ 先说清这套框架的效度边界：</b>四型人格（FTI）背后是真实的神经科学假说——四个神经递质系统有 fMRI 影像证据，也做过 7 国 7 万+ 样本的行为验证、并与大五有收敛相关。但<b>它作为一套独立人格分类学，从未经历大规模同行评审的心理测量学验证</b>：没有研究确认"4 个类型是人群中统计上可分的聚类"、跨时间稳定、或能比随机更好地预测关系结果。所以——<b>把它当约会场景的操作手册，别当诊断</b>。想真的"测准"，请做<a href={`${base}love-personality/`}>大五（重测信度 &gt; 0.8）</a>；想跟自己熟悉的四字母对照，见<a href={`${base}love-personality/`}>人格三张尺</a>。
+  </div>
+
   <!-- ══ 速查表 ══ -->
   <h2 class="sub-h">🧬 四型人格速查表</h2>
   <p class="hint">👇 点选任意一型展开：化学底色 / 典型特质 / 约会时如何识别 / 关系里的坑 / 与谁最搭。</p>
@@ -265,6 +269,7 @@ const quiz = [
     <p class="engage-tip">测完了？连同《爱情数学》十二个模型一起看，效果最好 ☕️</p>
     <p class="engage-links">
       <a href={`${base}love-math/`} class="lnk">🧩 爱情数学：九章 × 十二个模型 →</a>
+      <a href={`${base}love-personality/`} class="lnk">📐 人格三张尺：大五 · 16 型 · 四型 →</a>
       <a href={base} class="lnk">📚 回到情商恋爱手记 →</a>
     </p>
     <div class="reward">
@@ -430,6 +435,10 @@ const quiz = [
   .meta { color: var(--muted); font-size: 13.5px; line-height: 1.8; margin: 0 0 22px; }
   .sub-h { font-size: 20px; margin: 34px 0 10px; border-left: 4px solid var(--accent); padding-left: 10px; }
   .hint { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+  .bound { background: rgba(217,119,6,0.08); border-left: 4px solid #d97706; border-radius: 0 10px 10px 0; padding: 12px 16px; font-size: 13.5px; line-height: 1.8; margin: 0 0 22px; }
+  .bound b { color: #b45309; }
+  .bound a { color: var(--accent); }
+  :root[data-theme="dark"] .bound b { color: #fbbf24; }
 
   /* 速查表 */
   .tgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }

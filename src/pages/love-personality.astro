@@ -1,0 +1,846 @@
+---
+import SiteHeader from '../components/SiteHeader.astro';
+const base = import.meta.env.BASE_URL;
+
+// ═══════════════════════════════════════════════════════════
+// 三套测试统一用「5 点量表」，这样三者可以对照，也避开了
+// MBTI 迫选二分的最大缺陷（边界人群会被随机分到两边）。
+// ═══════════════════════════════════════════════════════════
+
+// ── ① 大五 · IPIP 短版（每维 6 题，3 正 3 反）──
+const big5 = [
+  { d: 'O', k: '+', t: '我有很多点子，喜欢琢磨抽象的概念。' },
+  { d: 'O', k: '+', t: '我喜欢接触从没听过的新鲜事物。' },
+  { d: 'O', k: '+', t: '我的想象力比较活跃。' },
+  { d: 'O', k: '-', t: '我对理论性的讨论提不起兴趣。' },
+  { d: 'O', k: '-', t: '我不太愿意尝试没做过的事。' },
+  { d: 'O', k: '-', t: '我很少被艺术、音乐或文字打动。' },
+
+  { d: 'C', k: '+', t: '我做事之前习惯先列个计划。' },
+  { d: 'C', k: '+', t: '我答应过的事一定会做到。' },
+  { d: 'C', k: '+', t: '我会把细节核对清楚再交出去。' },
+  { d: 'C', k: '-', t: '我经常把事情拖到最后一刻才做。' },
+  { d: 'C', k: '-', t: '我的东西常常随手一放，找的时候找不到。' },
+  { d: 'C', k: '-', t: '我常给自己定了计划又执行不下去。' },
+
+  { d: 'E', k: '+', t: '我在人多的场合很快就放得开。' },
+  { d: 'E', k: '+', t: '跟人聊天能给我充电。' },
+  { d: 'E', k: '+', t: '我习惯主动开启话题。' },
+  { d: 'E', k: '-', t: '认识新朋友时我通常先等对方开口。' },
+  { d: 'E', k: '-', t: '聚会久了我就想找个角落安静一会儿。' },
+  { d: 'E', k: '-', t: '比起热闹的局，我更喜欢一两个人深聊。' },
+
+  { d: 'A', k: '+', t: '我会主动去关心别人的感受。' },
+  { d: 'A', k: '+', t: '我愿意花时间为别人做事。' },
+  { d: 'A', k: '+', t: '我容易原谅别人的小毛病。' },
+  { d: 'A', k: '-', t: '我对别人的问题不太有兴趣。' },
+  { d: 'A', k: '-', t: '我觉得大部分人都不太可信。' },
+  { d: 'A', k: '-', t: '我很少为了照顾别人而调整自己。' },
+
+  { d: 'N', k: '+', t: '我经常会因为小事焦虑。' },
+  { d: 'N', k: '+', t: '我的情绪起伏比较大。' },
+  { d: 'N', k: '+', t: '被冷落或被拒绝时，我会难受很久。' },
+  { d: 'N', k: '-', t: '大多数时候我心里挺平静的。' },
+  { d: 'N', k: '-', t: '压力大的时候我也能很快稳住。' },
+  { d: 'N', k: '-', t: '我很少担心还没发生的事。' },
+];
+
+const big5meta = {
+  O: {
+    name: '开放性', en: 'Openness',
+    low: '务实、偏好熟悉与确定，不爱为新鲜付出成本。',
+    mid: '该稳的时候稳，该试的时候也愿意试。',
+    high: '好奇心强、爱新事物、抽象思维活跃，容易被"可能性"点燃。',
+    rel: '关系里：开放性高的人愿意扩圈、愿意尝试新场景（对应模型 2 的"资料与开场白"）——但也更容易觉得稳定=无聊。',
+  },
+  C: {
+    name: '尽责性', en: 'Conscientiousness',
+    low: '随性、不爱被计划约束，效率和守时靠临时爆发。',
+    mid: '重要的事会认真办，其余的事将就过去。',
+    high: '有计划、守承诺、重细节，是最可靠的伴侣类型。',
+    rel: '关系里：大五里对长期关系最"耐用"的一维。它测量的正是模型 3 里「相似度 s」中最硬的那部分（生活节奏、守不守约）。',
+  },
+  E: {
+    name: '外倾性', en: 'Extraversion',
+    low: '独处充电，人多的场合消耗你，先观察后开口。',
+    mid: '看场合切换，朋友圈小但稳。',
+    high: '社交充电，先开口的那一方，喜欢热闹与被看见。',
+    rel: '关系里：外倾性高的人天然站在模型 8 的「proposer」位置——主动在数学上严格占优（5.7 志愿 vs 35.6 志愿），这条对你几乎免费。',
+  },
+  A: {
+    name: '宜人性', en: 'Agreeableness',
+    low: '就事论事、敢说不、不爱迁就，但也容易显得冷。',
+    mid: '愿意配合，但底线清楚。',
+    high: '共情、愿意让、怕冲突，是关系里的润滑剂。',
+    rel: '关系里：宜人性高让冲突更容易变成协调（模型 4）。但过高的代价是——为了不吵架而不敢设条件、不敢表态，最后自己憋着。',
+  },
+  N: {
+    name: '神经质', en: 'Neuroticism',
+    low: '情绪稳，压力下恢复快，不容易被小事带走。',
+    mid: '有情绪起伏，但基本能自己收住。',
+    high: '敏感、易焦虑、对冷淡和拒绝对信号特别敏。',
+    rel: '关系里：这是 MBTI 完全没测到的一维，却最影响吵架的破坏力。N 高的人尤其需要模型 4 的「先离开 20 分钟、等心跳回落再谈」。',
+  },
+};
+
+// ── ② 16 型：四轴，每轴 8 题（两边各 4 题）──
+const axes = [
+  { a: 'E', b: 'I', an: '外倾', bn: '内倾', q: '能量从哪来' },
+  { a: 'S', b: 'N', an: '感觉', bn: '直觉', q: '怎么获取信息' },
+  { a: 'T', b: 'F', an: '思考', bn: '情感', q: '怎么做决定' },
+  { a: 'J', b: 'P', an: '判断', bn: '知觉', q: '怎么对待外部世界' },
+];
+const j16 = [
+  { p: 'E', t: '我在人多的场合很快就放得开。' },
+  { p: 'E', t: '跟人聊天能给我充电。' },
+  { p: 'E', t: '我习惯先开口，而不是等别人先说话。' },
+  { p: 'E', t: '长时间独处会让我有点闷。' },
+  { p: 'I', t: '聚会久了我就想找个角落自己待一会儿。' },
+  { p: 'I', t: '我需要独处才能把精力补回来。' },
+  { p: 'I', t: '认识新朋友时我通常先观察，等对方开口。' },
+  { p: 'I', t: '比起热闹的局，我更喜欢一两个人深聊。' },
+
+  { p: 'S', t: '我更相信亲眼看到、亲手验过的东西。' },
+  { p: 'S', t: '我喜欢按已经被验证过的方法做事。' },
+  { p: 'S', t: '我更关注眼前具体的事，而不是远处的可能性。' },
+  { p: 'S', t: '描述一件事时，我会把细节讲清楚。' },
+  { p: 'N', t: '我常常顺着一个想法想到很远的地方。' },
+  { p: 'N', t: '我喜欢琢磨"事情本来可以是什么样"。' },
+  { p: 'N', t: '比起具体步骤，我更在意整体图景。' },
+  { p: 'N', t: '我常在不相干的两件事之间看到联系。' },
+
+  { p: 'T', t: '做决定时我会先把利弊列清楚。' },
+  { p: 'T', t: '我觉得把话说准确，比让对方舒服更重要。' },
+  { p: 'T', t: '别人跟我诉苦时，我第一反应是帮他分析问题。' },
+  { p: 'T', t: '我很少被情绪影响判断。' },
+  { p: 'F', t: '做决定时我更在意这件事会不会伤到人。' },
+  { p: 'F', t: '我能很快感觉到气氛不对。' },
+  { p: 'F', t: '别人跟我诉苦时，我第一反应是先接住他的情绪。' },
+  { p: 'F', t: '我常常为了关系和谐先让一步。' },
+
+  { p: 'J', t: '我喜欢把计划定好，然后按计划推进。' },
+  { p: 'J', t: '事情没定下来，我会不太踏实。' },
+  { p: 'J', t: '我习惯提前完成，而不是压到最后。' },
+  { p: 'J', t: '我喜欢待办清单被一条条划掉的感觉。' },
+  { p: 'P', t: '我更喜欢留有余地，随时调整。' },
+  { p: 'P', t: '我常常到了最后一刻才爆发效率。' },
+  { p: 'P', t: '突然改变计划对我来说不算什么。' },
+  { p: 'P', t: '比起"定好"，我更享受"看看会怎样"。' },
+];
+
+const type16 = {
+  ISTJ: '务实守序：靠得住，按规矩把事情做扎实。',
+  ISFJ: '温和守护：记得每个人的需要，默默把事办好。',
+  INFJ: '洞察理想：看得深，也愿意为人扛事。',
+  INTJ: '战略独行：先想清楚全局，再一个人推到底。',
+  ISTP: '冷静拆解：动手能力强，遇事不慌。',
+  ISFP: '随性审美：当下的感受最真，不爱被安排。',
+  INFP: '内在信念：心里有一套自己的标准，会为它守着。',
+  INTP: '逻辑探路：喜欢把问题本身拆开来看。',
+  ESTP: '冲锋实干：先上再说，边做边调。',
+  ESFP: '现场焦点：把气氛带起来，活得热烈。',
+  ENFP: '灵感四射：点子多，容易被新的可能性点燃。',
+  ENTP: '辩论创新：爱抬杠，是为了找到更好的答案。',
+  ESTJ: '组织执行：定目标、分任务、盯结果。',
+  ESFJ: '关系枢纽：照顾到每个人的位置，最怕冷场。',
+  ENFJ: '带人向善：擅长看见别人的潜力，并推他一把。',
+  ENTJ: '目标统帅：决定快、推进猛，先把事拿下。',
+};
+
+// ── ③ 四型人格速测（每型 5 题，与 /love-type 的场景版互补）──
+const f4 = [
+  { p: 'E', t: '我喜欢新鲜刺激，一成不变会让我坐不住。' },
+  { p: 'E', t: '我常常说走就走，计划临时改也无所谓。' },
+  { p: 'E', t: '旅行对我来说，最好的部分是"还没想好去哪儿"。' },
+  { p: 'E', t: '我很容易对新事物着迷，也很容易腻。' },
+  { p: 'E', t: '我精力旺盛，闲下来反而难受。' },
+
+  { p: 'B', t: '我喜欢固定的节奏和熟悉的地方。' },
+  { p: 'B', t: '我会提前把行程安排清楚。' },
+  { p: 'B', t: '家人和老朋友对我特别重要。' },
+  { p: 'B', t: '我守时，也希望别人守时。' },
+  { p: 'B', t: '规则和秩序让我安心。' },
+
+  { p: 'D', t: '我说话直接，不太喜欢绕弯子。' },
+  { p: 'D', t: '有分歧时我会据理力争。' },
+  { p: 'D', t: '我习惯快速做决定，然后往前推。' },
+  { p: 'D', t: '我看重效率，不喜欢拖泥带水。' },
+  { p: 'D', t: '我不太习惯把感情挂在嘴上。' },
+
+  { p: 'N', t: '我很在意别人的感受，也容易察觉气氛变化。' },
+  { p: 'N', t: '我说话会留余地，尽量不把关系弄僵。' },
+  { p: 'N', t: '我常常在别人说出口之前，就知道他不太开心。' },
+  { p: 'N', t: '我记得别人提过的那些小细节。' },
+  { p: 'N', t: '我讨厌正面冲突，宁愿自己先让一步。' },
+];
+
+const f4meta = {
+  E: { name: '探索者', en: 'Explorer', chem: '多巴胺高', color: '#f59e0b', emoji: '🎢' },
+  B: { name: '建设者', en: 'Builder', chem: '血清素高', color: '#16a34a', emoji: '🏡' },
+  D: { name: '主导者', en: 'Director', chem: '睾酮高', color: '#dc2626', emoji: '🎯' },
+  N: { name: '协商者', en: 'Negotiator', chem: '雌激素高', color: '#6366f1', emoji: '🕊️' },
+};
+
+// ── 三张尺的对应关系（模态对应，不是等价）──
+const mapping = [
+  { f4: '🎢 探索者', b5: '高开放性 · 中高外倾', t16: 'ENFP / ENTP', note: '都指向"被新鲜感驱动"；但探索者不必然外倾——也有安静的 INTP 型探索者。' },
+  { f4: '🏡 建设者', b5: '高尽责性 · 中低开放性', t16: 'ISTJ / ISFJ / ESTJ', note: '都指向"稳定与秩序"；这是三套框架里对应最稳的一组。' },
+  { f4: '🎯 主导者', b5: '低宜人性 · 高外倾或高支配', t16: 'ENTJ / ESTJ / INTJ', note: '都指向"直接、要结果"；但低宜人性 ≠ 冷血，只是不靠迁就维持关系。' },
+  { f4: '🕊️ 协商者', b5: '高宜人性 · 高开放性', t16: 'ENFJ / INFP / INFJ', note: '都指向"共情与语言能力"；协商者是最不需要外倾的一型。' },
+];
+
+const dimOrder = ['O', 'C', 'E', 'A', 'N'];
+const BANDS = [
+  { max: 35, label: '偏低' },
+  { max: 65, label: '中等' },
+  { max: 101, label: '偏高' },
+];
+---
+
+<SiteHeader lang="zh" series="心动解码" />
+<main class="pp">
+  <p class="kicker">✦ 三套人格尺 · 可分别做 · 结果互相对照</p>
+  <h1>人格三张尺：大五 · 16 型 · 四型</h1>
+  <p class="meta">三套框架的"准"不在同一层。这套页面的做法是把三套都做成 <b>5 点量表的连续分数</b>——不给你贴死标签，而是告诉你每条轴你现在站在哪儿、离中线有多远。三套可以只做一套，也可以都做完再看对照。</p>
+
+  <script is:inline>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- ══ 效度对照 ══ -->
+  <section class="valid-wrap">
+    <h2 class="sub-h">先看清楚：这三张尺的准度不一样</h2>
+    <div class="vt">
+      <div class="vt-row vt-head">
+        <div class="vt-c0"></div>
+        <div class="vt-c vt-amber">🧬 四型 · FTI<br><span>本站"约会向"那套</span></div>
+        <div class="vt-c vt-red">🧭 16 型 · 荣格<br><span>MBTI 的公开版理论</span></div>
+        <div class="vt-c vt-green">📐 大五 · OCEAN<br><span>学界金标准</span></div>
+      </div>
+      <div class="vt-row">
+        <div class="vt-c0">分几类</div>
+        <div class="vt-c">4 个类型</div>
+        <div class="vt-c">16 个类型</div>
+        <div class="vt-c">不分类型，5 条连续轴</div>
+      </div>
+      <div class="vt-row">
+        <div class="vt-c0">理论来源</div>
+        <div class="vt-c">4 个神经递质系统 + fMRI 影像证据</div>
+        <div class="vt-c">荣格 1921，自上而下编题</div>
+        <div class="vt-c">词汇学因子分析，自下而上</div>
+      </div>
+      <div class="vt-row">
+        <div class="vt-c0">重测信度</div>
+        <div class="vt-c"><b class="amber">未公布</b></div>
+        <div class="vt-c"><b class="red">0.56 – 0.72</b> 偏低</div>
+        <div class="vt-c"><b class="green">&gt; 0.80</b> 稳定</div>
+      </div>
+      <div class="vt-row">
+        <div class="vt-c0">"类型"站得住吗</div>
+        <div class="vt-c"><b class="amber">没有证据</b>：4 个类别的聚类从未被同行评审证实</div>
+        <div class="vt-c"><b class="red">没有证据</b>：维度间交互几乎不显著，16 格立不住</div>
+        <div class="vt-c"><b class="green">不适用</b>：它本来就不把人塞进格子</div>
+      </div>
+      <div class="vt-row">
+        <div class="vt-c0">独立验证</div>
+        <div class="vt-c">有：与 NEO 大五收敛相关（n=215）、7 国 7 万+ 样本、影像学锚点；但分类学未经验证</div>
+        <div class="vt-c">维度可被大五覆盖（缺神经质整个维度）；预测职业满意度≈随机</div>
+        <div class="vt-c">数十国复现，学术与临床通用，重测 &gt; 0.8</div>
+      </div>
+    </div>
+    <p class="vt-note">⚠️ <b>诚实提示（这页跟别的人格测试不一样的地方）：</b>16 型的 4 个字母里，真正有证据的是它借来的那 4 条维度（≈大五的外倾 / 开放 / 宜人 / 尽责）；至于"16 个格子"本身，没有证据支持。所以本页 <b>不给你贴死标签</b>：四轴全用连续分数呈现，<b>距中线 5 分以内的轴会明确标"不稳定"</b>。而 MBTI® 是 The Myers-Briggs Company 的注册商标、官方量表无免费版，所以本页叫它「16 型 · 荣格类型学」，不叫 MBTI。</p>
+  </section>
+
+  <nav class="tabs" id="tabs" aria-label="选择测试">
+    <button class="tab on" data-tab="big5" type="button">📐 大五（最准 · 30 题）</button>
+    <button class="tab" data-tab="j16" type="button">🧭 16 型（32 题）</button>
+    <button class="tab" data-tab="f4" type="button">🧬 四型（速测 · 20 题）</button>
+    <button class="tab" data-tab="cross" type="button">🔀 三张尺对照</button>
+  </nav>
+
+  <!-- ══ ① 大五 ══ -->
+  <section class="panel on" id="tab-big5">
+    <div class="intro">
+      <b>大五 · IPIP 短版</b>（每维 6 题，3 正 3 反）。这是三套里唯一重测信度 &gt; 0.8 的：换一周再做，结果基本一样。5 点量表，正反题混编，所以"全部点同意"会得到中间分——这是故意设计的。
+    </div>
+    <div class="qbar">
+      <div class="qbar-track"><div class="qbar-fill" id="b5-fill"></div></div>
+      <span class="qbar-txt" id="b5-txt">已答 0 / 30</span>
+    </div>
+    <div class="items" id="b5-items">
+      {big5.map((it, i) => (
+        <div class="item" data-test="big5" data-i={i}>
+          <p class="item-t"><span class="item-no">{i + 1}</span>{it.t}</p>
+          <div class="lk" data-test="big5" data-i={i}>
+            {['很不同意', '不同意', '一般', '同意', '很同意'].map((L, v) => (
+              <button class="lk-b" type="button" data-v={v + 1}>{L}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+    <div class="acts">
+      <button class="btn ghost" id="b5-reset" type="button">重做</button>
+      <button class="btn" id="b5-go" type="button">看结果 →</button>
+    </div>
+    <div class="res" id="b5-res" hidden></div>
+  </section>
+
+  <!-- ══ ② 16 型 ══ -->
+  <section class="panel" id="tab-j16">
+    <div class="intro">
+      <b>16 型 · 荣格类型学</b>（四轴，每轴 8 题）。和网上免费版最大的差别：<b>不迫选</b>。每道题都是"同意程度"，最后给你<b>四条连续分数</b>——因为人格本来就不是开关，而是一条光谱。距中线 5 分以内的轴请当作"还没定型"。
+    </div>
+    <div class="qbar">
+      <div class="qbar-track"><div class="qbar-fill" id="j16-fill"></div></div>
+      <span class="qbar-txt" id="j16-txt">已答 0 / 32</span>
+    </div>
+    <div class="items" id="j16-items">
+      {j16.map((it, i) => (
+        <div class="item" data-test="j16" data-i={i}>
+          <p class="item-t"><span class="item-no">{i + 1}</span>{it.t}</p>
+          <div class="lk" data-test="j16" data-i={i}>
+            {['很不同意', '不同意', '一般', '同意', '很同意'].map((L, v) => (
+              <button class="lk-b" type="button" data-v={v + 1}>{L}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+    <div class="acts">
+      <button class="btn ghost" id="j16-reset" type="button">重做</button>
+      <button class="btn" id="j16-go" type="button">看结果 →</button>
+    </div>
+    <div class="res" id="j16-res" hidden></div>
+  </section>
+
+  <!-- ══ ③ 四型速测 ══ -->
+  <section class="panel" id="tab-f4">
+    <div class="intro">
+      <b>四型人格速测</b>（每型 5 题，5 点量表）。这是 <a href={`${base}love-type/`}>约会场景版那 20 道情境题</a> 的"量表版"——同一套四型框架，但换成陈述句，所以两边的结果可能略有差异，这本身就说明它精度有限。
+    </div>
+    <div class="qbar">
+      <div class="qbar-track"><div class="qbar-fill" id="f4-fill"></div></div>
+      <span class="qbar-txt" id="f4-txt">已答 0 / 20</span>
+    </div>
+    <div class="items" id="f4-items">
+      {f4.map((it, i) => (
+        <div class="item" data-test="f4" data-i={i}>
+          <p class="item-t"><span class="item-no">{i + 1}</span>{it.t}</p>
+          <div class="lk" data-test="f4" data-i={i}>
+            {['很不同意', '不同意', '一般', '同意', '很同意'].map((L, v) => (
+              <button class="lk-b" type="button" data-v={v + 1}>{L}</button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+    <div class="acts">
+      <button class="btn ghost" id="f4-reset" type="button">重做</button>
+      <button class="btn" id="f4-go" type="button">看结果 →</button>
+    </div>
+    <div class="res" id="f4-res" hidden></div>
+  </section>
+
+  <!-- ══ ④ 对照 ══ -->
+  <section class="panel" id="tab-cross">
+    <h2 class="sub-h">🔀 三张尺怎么对应</h2>
+    <p class="plain">三套框架不是三把量同一件事的尺——它们是三种不同的切法。<b>下面是"模态对应"，不是等价</b>：一个人完全可能四型是探索者、大五却是低开放性。</p>
+    <div class="map">
+      {mapping.map((m) => (
+        <div class="map-row">
+          <div class="map-cell map-f4">{m.f4}</div>
+          <div class="map-arrow">≈</div>
+          <div class="map-cell">{m.b5}</div>
+          <div class="map-arrow">≈</div>
+          <div class="map-cell">{m.t16}</div>
+          <div class="map-note">{m.note}</div>
+        </div>
+      ))}
+    </div>
+
+    <h2 class="sub-h">📋 你已完成的测试</h2>
+    <div id="cross-body" class="cross-body">
+      <p class="plain" id="cross-empty">还没有完成任何一套。做完任意一套就会出现在这里，做完两套以上会自动给一段综合解读。</p>
+    </div>
+
+    <div class="note-card">
+      💡 <b>怎么用这三张尺：</b>把大五当"准的那个"——尤其 <b>尽责性</b>（关系耐用度的主变量）和 <b>神经质</b>（吵架破坏力的主变量，MBTI 完全没测这一维）；把 16 型当<b>聊天用</b>的词汇（它最好的用途是让你有一套描述差异的话）；把四型当<b>约会场景的操作手册</b>——它给的是"约会时如何识别、和谁最搭"，这是另外两套给不了的。
+    </div>
+  </section>
+
+  <section class="engage">
+    <p class="engage-tip">三套都做完了？欢迎对照着看，也可以请作者喝杯咖啡 ☕️</p>
+    <p class="engage-links">
+      <a href={`${base}love-math/`} class="lnk">🧩 爱情数学：九章 × 十二个模型 →</a>
+      <a href={`${base}love-type/`} class="lnk">🧬 四型人格 · 约会场景版 20 题 →</a>
+    </p>
+    <div class="reward">
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/alipay.png`} alt="支付宝收款码" loading="lazy" /></div>
+        <p>支付宝</p>
+      </div>
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/wechat.png`} alt="微信收款码" loading="lazy" /></div>
+        <p>微信</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot-note">⚠️ 本页是通俗框架的自测与对照，不是心理测评量表，不构成心理咨询或专业建议。量表题项参考公共领域的大五（IPIP / OCEAN）与荣格类型学的公开描述自行编写；"16 型"部分与 MBTI® 无任何关联，MBTI 是 The Myers-Briggs Company 的注册商标。</p>
+</main>
+
+<script type="application/json" id="pp-data" set:html={JSON.stringify({ base, big5meta, axes, type16, f4meta, dimOrder })}></script>
+
+<script is:inline>
+  (function () {
+    var CFG = JSON.parse(document.getElementById('pp-data').textContent);
+    var LS_KEY = 'love-personality-v1';
+    var TESTS = {
+      big5: { n: 30, len: 5, dims: ['O', 'C', 'E', 'A', 'N'] },
+      j16: { n: 32, len: 4, dims: ['E', 'I', 'S', 'N', 'T', 'F', 'J', 'P'] },
+      f4: { n: 20, len: 5, dims: ['E', 'B', 'D', 'N'] },
+    };
+
+    var state = { big5: {}, j16: {}, f4: {} };
+    function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+    function load() {
+      try {
+        var s = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+        if (s && s.big5) state = { big5: s.big5 || {}, j16: s.j16 || {}, f4: s.f4 || {} };
+      } catch (e) {}
+    }
+    load();
+
+    // ── 选项卡 ──
+    var tabs = document.querySelectorAll('.tab[data-tab]');
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () {
+        var id = t.getAttribute('data-tab');
+        tabs.forEach(function (x) { x.classList.toggle('on', x === t); });
+        document.querySelectorAll('.panel').forEach(function (p) { p.classList.toggle('on', p.id === 'tab-' + id); });
+        if (id === 'cross') renderCross();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    // ── 答题渲染 ──
+    function answered(test) { return Object.keys(state[test]).length; }
+    function paint(test) {
+      var t = TESTS[test];
+      document.querySelectorAll('.lk[data-test="' + test + '"]').forEach(function (g) {
+        var i = g.getAttribute('data-i');
+        g.querySelectorAll('.lk-b').forEach(function (b) {
+          b.classList.toggle('on', state[test][i] === parseInt(b.getAttribute('data-v'), 10));
+        });
+      });
+      var done = answered(test);
+      var fill = document.getElementById(test === 'big5' ? 'b5-fill' : test === 'j16' ? 'j16-fill' : 'f4-fill');
+      var txt = document.getElementById(test === 'big5' ? 'b5-txt' : test === 'j16' ? 'j16-txt' : 'f4-txt');
+      var go = document.getElementById(test === 'big5' ? 'b5-go' : test === 'j16' ? 'j16-go' : 'f4-go');
+      if (fill) fill.style.width = Math.round((done / t.n) * 100) + '%';
+      if (txt) txt.textContent = done === t.n ? '已完成 · ' + t.n + ' / ' + t.n : '已答 ' + done + ' / ' + t.n;
+      if (go) {
+        go.disabled = done < t.n;
+        go.textContent = done < t.n ? '还差 ' + (t.n - done) + ' 题' : '看结果 →';
+      }
+    }
+    document.querySelectorAll('.lk-b').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var g = b.parentNode;
+        var test = g.getAttribute('data-test');
+        var i = g.getAttribute('data-i');
+        state[test][i] = parseInt(b.getAttribute('data-v'), 10);
+        save();
+        paint(test);
+      });
+    });
+    ['big5', 'j16', 'f4'].forEach(paint);
+
+    function reset(test) {
+      state[test] = {};
+      save();
+      paint(test);
+      var res = document.getElementById(test === 'big5' ? 'b5-res' : test === 'j16' ? 'j16-res' : 'f4-res');
+      if (res) { res.hidden = true; res.innerHTML = ''; }
+    }
+    document.getElementById('b5-reset').addEventListener('click', function () { reset('big5'); });
+    document.getElementById('j16-reset').addEventListener('click', function () { reset('j16'); });
+    document.getElementById('f4-reset').addEventListener('click', function () { reset('f4'); });
+
+    function band(p) { return p <= 35 ? '偏低' : (p <= 65 ? '中等' : '偏高'); }
+
+    // ── 大五计分（正反向已折算；6 题 → 6..30 → 0..100）──
+    function scoreBig5() {
+      var src = [
+        { d: 'O', k: '+' }, { d: 'O', k: '+' }, { d: 'O', k: '+' }, { d: 'O', k: '-' }, { d: 'O', k: '-' }, { d: 'O', k: '-' },
+        { d: 'C', k: '+' }, { d: 'C', k: '+' }, { d: 'C', k: '+' }, { d: 'C', k: '-' }, { d: 'C', k: '-' }, { d: 'C', k: '-' },
+        { d: 'E', k: '+' }, { d: 'E', k: '+' }, { d: 'E', k: '+' }, { d: 'E', k: '-' }, { d: 'E', k: '-' }, { d: 'E', k: '-' },
+        { d: 'A', k: '+' }, { d: 'A', k: '+' }, { d: 'A', k: '+' }, { d: 'A', k: '-' }, { d: 'A', k: '-' }, { d: 'A', k: '-' },
+        { d: 'N', k: '+' }, { d: 'N', k: '+' }, { d: 'N', k: '+' }, { d: 'N', k: '-' }, { d: 'N', k: '-' }, { d: 'N', k: '-' },
+      ];
+      var sum = { O: 0, C: 0, E: 0, A: 0, N: 0 };
+      Object.keys(state.big5).forEach(function (i) {
+        var it = src[parseInt(i, 10)];
+        if (!it) return;
+        var v = state.big5[i];
+        sum[it.d] += it.k === '+' ? v : (6 - v);
+      });
+      var out = {};
+      CFG.dimOrder.forEach(function (d) { out[d] = Math.round(((sum[d] - 6) / 24) * 100); });
+      return out;
+    }
+
+    // ── 16 型：每轴两边的题分开算，取占比 ──
+    function scoreJ16() {
+      var pole = [
+        'E', 'E', 'E', 'E', 'I', 'I', 'I', 'I',
+        'S', 'S', 'S', 'S', 'N', 'N', 'N', 'N',
+        'T', 'T', 'T', 'T', 'F', 'F', 'F', 'F',
+        'J', 'J', 'J', 'J', 'P', 'P', 'P', 'P',
+      ];
+      var sum = {};
+      pole.forEach(function (p) { sum[p] = 0; });
+      Object.keys(state.j16).forEach(function (i) {
+        var p = pole[parseInt(i, 10)];
+        if (p) sum[p] += state.j16[i];
+      });
+      return CFG.axes.map(function (ax) {
+        var A = sum[ax.a], B = sum[ax.b], tot = A + B || 1;
+        var pct = Math.round((A / tot) * 100);
+        return { a: ax.a, b: ax.b, an: ax.an, bn: ax.bn, q: ax.q, pct: pct, letter: pct >= 50 ? ax.a : ax.b, tight: Math.abs(pct - 50) <= 5 };
+      });
+    }
+
+    // ── 四型：每型 5 题，占比 ──
+    function scoreF4() {
+      var pole = [
+        'E', 'E', 'E', 'E', 'E',
+        'B', 'B', 'B', 'B', 'B',
+        'D', 'D', 'D', 'D', 'D',
+        'N', 'N', 'N', 'N', 'N',
+      ];
+      var sum = { E: 0, B: 0, D: 0, N: 0 };
+      Object.keys(state.f4).forEach(function (i) {
+        var p = pole[parseInt(i, 10)];
+        if (p) sum[p] += state.f4[i];
+      });
+      var tot = 0;
+      Object.keys(sum).forEach(function (k) { tot += sum[k]; });
+      tot = tot || 1;
+      return Object.keys(sum).map(function (k) {
+        return { p: k, sum: sum[k], pct: Math.round((sum[k] / tot) * 100) };
+      }).sort(function (x, y) { return y.pct - x.pct; });
+    }
+
+    function bar(name, pct, color, right) {
+      return '<div class="bar-row"><span class="bar-name">' + name + '</span>' +
+        '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%;background:' + (color || 'var(--accent)') + '"></span></span>' +
+        '<span class="bar-num">' + pct + '%' + (right || '') + '</span></div>';
+    }
+
+    function showBig5() {
+      var s = scoreBig5();
+      var html = '<h3 class="res-h">📐 你的大五剖面</h3><div class="bars">';
+      CFG.dimOrder.forEach(function (d) {
+        var m = CFG.big5meta[d];
+        html += bar(m.name + '<small>' + m.en + '</small>', s[d], 'var(--accent)');
+      });
+      html += '</div><div class="res-cards">';
+      CFG.dimOrder.forEach(function (d) {
+        var m = CFG.big5meta[d], b = band(s[d]);
+        var desc = b === '偏低' ? m.low : (b === '中等' ? m.mid : m.high);
+        html += '<div class="rc"><div class="rc-h"><b>' + m.name + '</b><span class="rc-band b-' + b + '">' + s[d] + '% · ' + b + '</span></div>' +
+          '<p>' + desc + '</p><p class="rc-rel">' + m.rel + '</p></div>';
+      });
+      html += '</div>';
+      var el = document.getElementById('b5-res');
+      el.innerHTML = html;
+      el.hidden = false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function showJ16() {
+      var ax = scoreJ16();
+      var code = ax.map(function (a) { return a.letter; }).join('');
+      var tightOnes = ax.filter(function (a) { return a.tight; });
+      var html = '<h3 class="res-h">🧭 你的四轴位置与字母</h3>';
+      html += '<div class="code">' + code + '<small>仅供描述，不当标签用</small></div>';
+      html += '<div class="axes">';
+      ax.forEach(function (a) {
+        html += '<div class="axis' + (a.tight ? ' axis-tight' : '') + '">' +
+          '<div class="axis-head"><span class="' + (a.pct >= 50 ? 'pole-win' : '') + '">' + a.a + ' ' + a.an + ' ' + a.pct + '%</span>' +
+          '<span class="' + (a.pct < 50 ? 'pole-win' : '') + '">' + (100 - a.pct) + '% ' + a.bn + ' ' + a.b + '</span></div>' +
+          '<div class="axis-track"><span class="axis-fill" style="width:' + a.pct + '%"></span><span class="axis-mid"></span></div>' +
+          '<div class="axis-foot">' + a.q + (a.tight ? ' · <b class="amber">距中线很近，这一轴不稳定，别当真</b>' : '') + '</div>' +
+          '</div>';
+      });
+      html += '</div>';
+      html += '<div class="rc rc-type"><div class="rc-h"><b>' + code + ' 的一句话说</b><span class="rc-band b-偏高">' + (CFG.type16[code] ? '已收录' : '—') + '</span></div><p>' + (CFG.type16[code] || '这套组合的简短描述尚未收录。') + '</p></div>';
+      html += '<div class="warn-inline">⚠️ 16 个字母的"格子"本身没有科学证据支持；<b>有证据的是这四条轴</b>（≈大五的外倾 / 开放 / 宜人 / 尽责）。所以请把上面四行分数当结论，把 ' + code + ' 当称呼。';
+      if (tightOnes.length) {
+        html += '<br>本次有 <b>' + tightOnes.length + '</b> 条轴距中线 ≤ 5 分（' + tightOnes.map(function (a) { return a.a + '/' + a.b; }).join('、') + '）：换一周再做，这几个字母很可能翻转，这属于量表特性，不是你不稳定。</div>';
+      } else { html += '</div>'; }
+      var el = document.getElementById('j16-res');
+      el.innerHTML = html;
+      el.hidden = false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function showF4() {
+      var r = scoreF4();
+      var top = r[0], second = r[1];
+      var tight = top.pct - second.pct <= 5;
+      var pick = tight ? [top, second] : [top];
+      var html = '<h3 class="res-h">🧬 你的四型占比</h3><div class="bars">';
+      r.forEach(function (x) {
+        var m = CFG.f4meta[x.p];
+        html += bar(m.emoji + ' ' + m.name, x.pct, m.color);
+      });
+      html += '</div><div class="res-cards">';
+      pick.forEach(function (x) {
+        var m = CFG.f4meta[x.p];
+        html += '<div class="rc" style="border-left-color:' + m.color + '"><div class="rc-h"><b style="color:' + m.color + '">' + m.emoji + ' ' + m.name + ' <small>' + m.en + '</small></b>' +
+          '<span class="rc-band b-偏高">' + x.pct + '%</span></div>' +
+          '<p><b>化学底色：</b>' + m.chem + '</p>' +
+          '<p class="rc-rel">完整的"约会时如何识别 / 关系里的坑 / 与谁最搭 / 该用哪个模型"，见 <a href="' + CFG.base + 'love-type/">约会场景版 20 题</a>。</p></div>';
+      });
+      html += '</div>';
+      if (tight) html += '<div class="warn-inline">两型得分非常接近（' + top.pct + '% / ' + second.pct + '%），不是"选不出来"，而是真的在两型之间切换。</div>';
+      var el = document.getElementById('f4-res');
+      el.innerHTML = html;
+      el.hidden = false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    document.getElementById('b5-go').addEventListener('click', showBig5);
+    document.getElementById('j16-go').addEventListener('click', showJ16);
+    document.getElementById('f4-go').addEventListener('click', showF4);
+
+    // ── 对照区 ──
+    function renderCross() {
+      var body = document.getElementById('cross-body');
+      var doneB5 = answered('big5') === TESTS.big5.n;
+      var doneJ16 = answered('j16') === TESTS.j16.n;
+      var doneF4 = answered('f4') === TESTS.f4.n;
+      var html = '';
+      var count = (doneB5 ? 1 : 0) + (doneJ16 ? 1 : 0) + (doneF4 ? 1 : 0);
+      if (!count) {
+        body.innerHTML = '<p class="plain">还没有完成任何一套。做完任意一套就会出现在这里，做完两套以上会自动给一段综合解读。</p>';
+        return;
+      }
+      var notes = [];
+      if (doneB5) {
+        var s = scoreBig5();
+        html += '<div class="cs"><h4>📐 大五（最准的那个）</h4><div class="bars">';
+        CFG.dimOrder.forEach(function (d) { html += bar(CFG.big5meta[d].name + '<small>' + CFG.big5meta[d].en + '</small>', s[d], 'var(--accent)'); });
+        html += '</div>';
+        if (s.C <= 35) notes.push('大五<b>尽责性偏低</b>：长期关系最耐用的那一维不足，建议用外部结构补——把"每周固定的安排"写进日程，别靠意志力。');
+        if (s.C >= 66) notes.push('大五<b>尽责性偏高</b>：你在模型 3 的"相似度"上占了便宜，但注意别把伴侣也管成一个项目——模型 4 的教训。');
+        if (s.N >= 66) notes.push('大五<b>神经质偏高</b>：这是 NT 型框架（MBTI）完全没测到的一维，却最决定吵架的破坏力。模型 4 的"先各自离开 20 分钟、等心跳回落再谈"对你不是建议，是必需。');
+        if (s.N <= 35) notes.push('大五<b>神经质偏低</b>：情绪恢复快，冲突升级的风险小；但也要留意伴侣的敏感你可能"感觉不到"。');
+        if (s.A <= 35) notes.push('大五<b>宜人性偏低</b>：就事论事是优势，但在关系里容易被读成冷。记得把"结论"包一层"我在意你"再递出去。');
+        if (s.A >= 66) notes.push('大五<b>宜人性偏高</b>：容易为了和谐一直让步——模型 4 说得很清楚，靠"更能忍"填不平那个坑，要靠外部机制（谁先让的规则）。');
+        if (s.E >= 66) notes.push('大五<b>外倾性偏高</b>：你天然站在模型 8 的 proposer 位置，主动对你几乎免费——把它用满。');
+        if (s.E <= 35) notes.push('大五<b>外倾性偏低</b>：独处充电不是缺陷，但要留意模型 8——被动等待在数学上严格吃亏（5.7 vs 35.6 志愿）。给自己定"每月主动一次"的硬指标。');
+        html += '</div>';
+      }
+      if (doneJ16) {
+        var ax = scoreJ16();
+        var code = ax.map(function (a) { return a.letter; }).join('');
+        html += '<div class="cs"><h4>🧭 16 型：' + code + '</h4><div class="axes">';
+        ax.forEach(function (a) {
+          html += '<div class="axis' + (a.tight ? ' axis-tight' : '') + '"><div class="axis-head"><span>' + a.a + ' ' + a.an + ' ' + a.pct + '%</span><span>' + (100 - a.pct) + '% ' + a.bn + ' ' + a.b + '</span></div>' +
+            '<div class="axis-track"><span class="axis-fill" style="width:' + a.pct + '%"></span><span class="axis-mid"></span></div></div>';
+        });
+        html += '</div><p class="cs-p">' + (CFG.type16[code] || '') + '</p></div>';
+        var tights = ax.filter(function (a) { return a.tight; }).length;
+        if (tights) notes.push('16 型有 <b>' + tights + '</b> 条轴距中线 ≤ 5 分——换一周再做这几个字母很可能翻转。把它当称呼就好，别当结论。');
+      }
+      if (doneF4) {
+        var r = scoreF4();
+        html += '<div class="cs"><h4>🧬 四型（约会向）</h4><div class="bars">';
+        r.forEach(function (x) { var m = CFG.f4meta[x.p]; html += bar(m.emoji + ' ' + m.name, x.pct, m.color); });
+        html += '</div><p class="cs-p">主导：<b style="color:' + CFG.f4meta[r[0].p].color + '">' + CFG.f4meta[r[0].p].name + '</b>（' + CFG.f4meta[r[0].p].chem + '）</p></div>';
+        notes.push('四型是"约会场景的操作手册"：它给的是"约会时如何识别、和谁最搭"，这是另外两套给不了的——但它精度最低，别用它给一个人下判断。');
+      }
+      html += '<div class="synth"><h4>🔎 综合解读</h4><ul>' + notes.map(function (n) { return '<li>' + n + '</li>'; }).join('') + '</ul></div>';
+      body.innerHTML = html;
+    }
+    renderCross();
+  })();
+</script>
+
+<style is:global>
+  :root { --bg-url: url('/love-blog/24solar-bg.png'); }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: var(--bg-url); background-size: cover; background-position: center top;
+    background-repeat: no-repeat; opacity: 0.13; z-index: -1; pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  :root[data-theme="dark"] body::before { opacity: 0.08; }
+</style>
+
+<style>
+  .pp { max-width: 860px; margin: 0 auto; padding: 36px 20px 64px; }
+  .kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 8px; }
+  .pp h1 { font-size: 29px; line-height: 1.35; margin: 0 0 8px; }
+  .meta { color: var(--muted); font-size: 13.5px; line-height: 1.8; margin: 0 0 22px; }
+  .sub-h { font-size: 19px; margin: 30px 0 10px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  .plain { font-size: 14.5px; line-height: 1.8; margin: 10px 0; }
+  .meta b, .plain b { color: var(--accent); }
+
+  /* 效度对照表 */
+  .valid-wrap { margin-bottom: 26px; }
+  .vt { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg); }
+  .vt-row { display: grid; grid-template-columns: 92px 1fr 1fr 1fr; }
+  .vt-row + .vt-row { border-top: 1px solid var(--border); }
+  .vt-c0 { padding: 9px 10px; font-size: 12px; color: var(--muted); background: var(--code-bg); }
+  .vt-c { padding: 9px 10px; font-size: 12.5px; line-height: 1.65; }
+  .vt-c + .vt-c, .vt-c0 + .vt-c { border-left: 1px solid var(--border); }
+  .vt-head .vt-c { font-size: 13px; font-weight: 700; }
+  .vt-head .vt-c span { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+  .vt-amber { background: rgba(245,158,11,0.10); }
+  .vt-red { background: rgba(220,38,38,0.07); }
+  .vt-green { background: rgba(22,163,74,0.09); }
+  b.amber { color: #b45309; }
+  b.red { color: #dc2626; }
+  b.green { color: #15803d; }
+  :root[data-theme="dark"] b.amber { color: #fbbf24; }
+  :root[data-theme="dark"] b.red { color: #f87171; }
+  :root[data-theme="dark"] b.green { color: #4ade80; }
+  .vt-note { background: rgba(217,119,6,0.08); border-left: 4px solid #d97706; border-radius: 0 10px 10px 0; padding: 12px 16px; font-size: 13.5px; line-height: 1.8; margin: 14px 0 0; }
+  .vt-note b { color: #b45309; }
+  :root[data-theme="dark"] .vt-note b { color: #fbbf24; }
+
+  /* tabs */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+  .tab { padding: 8px 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--fg); font-size: 14px; cursor: pointer; transition: .18s; }
+  .tab:hover { border-color: var(--accent); color: var(--accent); }
+  .tab.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .panel { display: none; }
+  .panel.on { display: block; animation: fade .28s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .intro { background: var(--code-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 12px 16px; font-size: 13.5px; line-height: 1.8; margin: 0 0 16px; }
+  .intro a { color: var(--accent); }
+  .intro b { color: var(--accent); }
+
+  .qbar { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; }
+  .qbar-track { flex: 1; height: 8px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .qbar-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+  .qbar-txt { color: var(--muted); font-size: 12.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .items { display: flex; flex-direction: column; gap: 8px; }
+  .item { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--bg); }
+  .item-t { flex: 1 1 300px; margin: 0; font-size: 14px; line-height: 1.6; }
+  .item-no { color: var(--accent); font-weight: 800; font-size: 12px; margin-right: 8px; font-variant-numeric: tabular-nums; }
+  .lk { display: flex; gap: 5px; flex: none; }
+  .lk-b { padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--muted); font-size: 12px; cursor: pointer; transition: .14s; white-space: nowrap; }
+  .lk-b:hover { border-color: var(--accent); color: var(--accent); }
+  .lk-b.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  .acts { display: flex; gap: 10px; margin-top: 18px; }
+  .btn { padding: 9px 22px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font-size: 14.5px; cursor: pointer; transition: .15s; }
+  .btn:hover:not(:disabled) { opacity: .9; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  #b5-go, #j16-go, #f4-go { margin-left: auto; }
+
+  .res { margin-top: 22px; border-top: 1px dashed var(--border); padding-top: 18px; }
+  .res-h { font-size: 18px; margin: 0 0 12px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  .bars { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--bg); margin-bottom: 14px; }
+  .bar-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+  .bar-name { flex: none; width: 132px; font-size: 13px; }
+  .bar-name small { color: var(--muted); font-size: 11px; margin-left: 5px; }
+  .bar-track { flex: 1; height: 12px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .bar-fill { display: block; height: 100%; border-radius: 999px; transition: width .5s ease; }
+  .bar-num { flex: none; width: 56px; text-align: right; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .res-cards { display: flex; flex-direction: column; gap: 10px; }
+  .rc { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 12px 16px; background: var(--bg); }
+  .rc-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; flex-wrap: wrap; }
+  .rc-h b { font-size: 15px; }
+  .rc-h small { color: var(--muted); font-size: 11.5px; font-weight: 400; margin-left: 5px; }
+  .rc-band { font-size: 12px; padding: 1px 9px; border-radius: 999px; background: var(--code-bg); color: var(--muted); }
+  .rc-band.b-偏低 { background: rgba(99,102,241,0.12); color: #4f46e5; }
+  .rc-band.b-中等 { background: rgba(217,119,6,0.12); color: #b45309; }
+  .rc-band.b-偏高 { background: rgba(224,69,123,0.12); color: var(--accent); }
+  .rc p { margin: 5px 0; font-size: 13.5px; line-height: 1.75; }
+  .rc-rel { color: var(--muted); font-size: 13px !important; border-top: 1px dashed var(--border); padding-top: 6px; }
+  .rc p a { color: var(--accent); }
+
+  .code { font-size: 34px; font-weight: 800; letter-spacing: 4px; color: var(--accent); margin: 0 0 14px; }
+  .code small { display: block; font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); margin-top: 2px; }
+
+  .axes { display: flex; flex-direction: column; gap: 12px; }
+  .axis { border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; background: var(--bg); }
+  .axis-tight { border-color: #d97706; background: rgba(217,119,6,0.05); }
+  .axis-head { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; color: var(--muted); }
+  .axis-head .pole-win { color: var(--fg); font-weight: 700; }
+  .axis-track { position: relative; height: 12px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .axis-fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .5s ease; }
+  .axis-mid { position: absolute; left: 50%; top: -1px; width: 1px; height: 12px; background: var(--muted); opacity: .55; }
+  .axis-foot { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+  .axis-foot b.amber { color: #b45309; }
+  :root[data-theme="dark"] .axis-foot b.amber { color: #fbbf24; }
+
+  .warn-inline { background: rgba(217,119,6,0.08); border-left: 4px solid #d97706; border-radius: 0 10px 10px 0; padding: 11px 15px; font-size: 13px; line-height: 1.8; margin-top: 12px; }
+  .warn-inline b { color: #b45309; }
+  :root[data-theme="dark"] .warn-inline b { color: #fbbf24; }
+  .rc-type { margin-top: 12px; }
+
+  /* 对照 */
+  .map { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .map-row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 10px; padding: 10px 13px; background: var(--bg); }
+  .map-cell { font-size: 13px; }
+  .map-f4 { font-weight: 700; }
+  .map-arrow { color: var(--muted); font-size: 12px; }
+  .map-note { width: 100%; color: var(--muted); font-size: 12.5px; line-height: 1.65; }
+
+  .cross-body { display: flex; flex-direction: column; gap: 14px; }
+  .cs { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--bg); }
+  .cs h4 { margin: 0 0 10px; font-size: 15.5px; }
+  .cs-p { font-size: 13.5px; line-height: 1.75; margin: 8px 0 0; }
+  .synth { background: var(--code-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 12px 12px 0; padding: 14px 18px; }
+  .synth h4 { margin: 0 0 8px; font-size: 15.5px; }
+  .synth ul { margin: 0; padding-left: 20px; }
+  .synth li { margin: 7px 0; font-size: 13.5px; line-height: 1.8; }
+  .synth b { color: var(--accent); }
+
+  .note-card { background: var(--code-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.8; }
+  .note-card b { color: var(--accent); }
+
+  .engage { margin-top: 42px; padding-top: 26px; border-top: 1px solid var(--border); text-align: center; }
+  .engage-tip { font-size: 15px; margin: 0 0 10px; }
+  .engage-links { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 0 0 18px; }
+  .lnk { color: var(--accent); text-decoration: none; font-size: 14px; border: 1px dashed var(--accent); border-radius: 999px; padding: 6px 16px; }
+  .lnk:hover { background: var(--accent); color: #fff; }
+  .reward { display: flex; gap: 24px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .reward-col { text-align: center; }
+  .reward-qr { width: 120px; height: 120px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--code-bg); overflow: hidden; }
+  .reward-qr img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .reward-col p { margin: 8px 0 0; font-size: 14px; }
+  .foot-note { color: var(--muted); font-size: 12px; margin-top: 28px; text-align: center; line-height: 1.7; }
+
+  @media (max-width: 700px) {
+    .vt-row { grid-template-columns: 1fr; }
+    .vt-c0 { font-weight: 700; }
+    .vt-c + .vt-c, .vt-c0 + .vt-c { border-left: none; border-top: 1px solid var(--border); }
+    .item { flex-direction: column; align-items: flex-start; }
+    .lk { flex-wrap: wrap; }
+    .bar-name { width: 96px; font-size: 12px; }
+    .code { font-size: 28px; letter-spacing: 3px; }
+    #b5-go, #j16-go, #f4-go { margin-left: 0; }
+    .acts { flex-wrap: wrap; }
+  }
+</style>

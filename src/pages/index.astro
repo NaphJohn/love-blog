@@ -57,9 +57,17 @@ const freeCount = chapters.filter((c) => c.free).length;
       <span class="lab-ico">🧬</span>
       <span class="lab-body">
         <span class="lab-t">四型人格测试：你是哪一型？</span>
-        <span class="lab-d">探索者（多巴胺）/ 建设者（血清素）/ 主导者（睾酮）/ 协商者（雌激素）——20 题即时出结果，附四型速查表、约会时如何识别、关系里的坑，以及每型该用哪个模型。<b>答题 · 即时出结果</b></span>
+        <span class="lab-d">探索者（多巴胺）/ 建设者（血清素）/ 主导者（睾酮）/ 协商者（雌激素）——20 道情境题即时出结果，附四型速查表、约会时如何识别、关系里的坑，以及每型该用哪个模型。<b>答题 · 即时出结果</b></span>
       </span>
       <span class="lab-go">去测试 →</span>
+    </a>
+    <a class="lab lab-pers" href={`${base}love-personality/`}>
+      <span class="lab-ico">📐</span>
+      <span class="lab-body">
+        <span class="lab-t">人格三张尺：大五 · 16 型 · 四型</span>
+        <span class="lab-d">三套框架一起做、互相对照：<b>大五（重测信度 &gt; 0.8，最准的那个）</b>、16 型（四轴连续分数，不贴死标签）、四型（约会向速测）。含「这三张尺的准度不一样」效度对照表，以及四型 ↔ 大五 ↔ 16 型的对应关系。<b>可选择 · 结果自动对照</b></span>
+      </span>
+      <span class="lab-go">三张尺 →</span>
     </a>
   </section>
 
@@ -107,6 +115,7 @@ const freeCount = chapters.filter((c) => c.free).length;
   .lab:hover { transform: translateY(-2px); border-color: var(--accent); }
   .lab-math { border-left: 4px solid #6366f1; }
   .lab-type { border-left: 4px solid var(--accent); }
+  .lab-pers { border-left: 4px solid #16a34a; }
   .lab-ico { font-size: 28px; flex: none; }
   .lab-body { flex: 1; display: flex; flex-direction: column; gap: 3px; }
   .lab-t { font-weight: 700; font-size: 17px; }
