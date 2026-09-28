@@ -275,10 +275,12 @@ const paramsNote = '模型 3 的 a、b 与模型 5 的 β、c、COST、模型 9 
     </ol>
   </div>
 
+  <p class="cta-row"><button class="cta-btn" id="wz-cta" type="button">🧭 不确定该用哪一条？做 5 道选择题，直接给你一份评估 →</button></p>
+
   <nav class="tabs" id="tabs" aria-label="内容切换">
     <button class="tab on" data-tab="models" type="button">🧩 十二个模型</button>
     <button class="tab" data-tab="chapters" type="button">📖 九章速览</button>
-    <button class="tab" data-tab="howto" type="button">🛠 怎么用</button>
+    <button class="tab" data-tab="howto" type="button">🧭 帮我判断</button>
     <button class="tab" data-tab="valid" type="button">🔬 是否有效</button>
     <button class="tab" data-tab="source" type="button">📐 数据与复现</button>
     <a class="tab quiz-cta" href={`${base}love-personality/`}>📐 做人格测试：三张尺 →</a>
@@ -348,11 +350,33 @@ const paramsNote = '模型 3 的 a、b 与模型 5 的 β、c、COST、模型 9 
     <div class="note-card">第 2 章「容貌」是全书九章里唯一没有单独建模的一章——它需要的是图像数据，不是一个可解析的目标函数。本报告用模型 2（信息量）覆盖它相邻的「资料里该写什么」这一层。</div>
   </section>
 
-  <!-- ── TAB 3：怎么用 ── -->
+  <!-- ── TAB 3：决策向导 ── -->
   <section class="panel" id="tab-howto">
     <div class="lede small">
       <p><b>总用法：</b>把这些模型当<b>决策规则</b>用，不要当<b>预测器</b>用。它们不会告诉你「这个人会不会喜欢你」；它们告诉你的是——在什么情况下，什么样的策略更容易成、什么样的说法其实是自欺。</p>
     </div>
+
+    <!-- ══ 决策向导 ══ -->
+    <div class="wz" id="wizard">
+      <div class="wz-head">
+        <span class="wz-kick">🧭 决策向导 · 5 道选择题</span>
+        <h2 class="wz-h">别去翻十二张操作卡了——告诉我你的情况，我算给你看</h2>
+        <p class="wz-sub">每一步只问你马上能答出来的东西。答完之后，用正文那十二个模型<b>现场</b>算一份只属于你的评估：你现在处在哪个阶段、最优值是多少、你偏了多少、先改哪一件最划算。数字全部来自本页的 <code>compute_models.py</code> 口径，没有手写。</p>
+      </div>
+      <div class="wz-prog"><div class="wz-prog-in" id="wz-prog-in"></div></div>
+      <div class="wz-meta">
+        <span class="wz-step" id="wz-step">第 1 步 · 处境</span>
+        <span class="wz-path" id="wz-path"></span>
+      </div>
+      <div class="wz-body" id="wz-body"></div>
+      <div class="wz-nav">
+        <button class="wz-btn" id="wz-prev" type="button">← 上一步</button>
+        <button class="wz-btn ghost" id="wz-reset" type="button">重新开始</button>
+      </div>
+    </div>
+    <div class="wz-out" id="wz-out" hidden></div>
+
+    <h2 class="sub-h">📚 参考：七张操作卡（不想做题，直接查）</h2>
     <div class="cards">
       {cards.map((c) => (
         <details class="op-card">
@@ -553,6 +577,822 @@ python3 build_report.py                 # 重新生成本页数据</code></pre>
   })();
 </script>
 
+<script is:inline>
+  /* ══════════════════════════════════════════════════════════════
+     决策向导：分支选择 → 用正文那十二个模型现场算 → 出评估
+     常数全部取自 compute_models.py（seed=20260923），见「数据与复现」
+     ══════════════════════════════════════════════════════════════ */
+  (function () {
+    var BETA = 1.5, C0 = 0.8;              // 模型 5：回应率 logit
+    var LAM0 = 0.5, AS = 2.2, BC = 0.6;    // 模型 3：风险率
+    var IDF_VAGUE = 1.810;                 // 幽默 + 爱笑 + 随和
+    var IDF_RICH = 7.747;                  // 吉他 + 看展 + 爬山
+    var INV_E = 0.367879;
+
+    var WORDS = [
+      { w: '滑板', p: 0.03 }, { w: '吉他', p: 0.06 }, { w: '看展', p: 0.08 },
+      { w: '爬山', p: 0.09 }, { w: '做饭', p: 0.12 }, { w: '打羽毛球', p: 0.15 },
+      { w: '孝顺', p: 0.33 }, { w: '善良', p: 0.41 }, { w: '喜欢旅行', p: 0.45 },
+      { w: '爱笑', p: 0.48 }, { w: '随和', p: 0.55 }, { w: '幽默', p: 0.62 },
+    ];
+
+    // ── 数学 ──
+    function idf(p) { return Math.log(1 / p); }
+    function optStop(n) {                       // 最优停止：扫描出最优 k 与成功率
+      var best = { k: 1, p: 0 };
+      for (var k = 1; k < n; k++) {
+        var s = 0;
+        for (var i = k + 1; i <= n; i++) s += 1 / (i - 1);
+        var p = (k / n) * s;
+        if (p > best.p) best = { k: k, p: p };
+      }
+      return best;
+    }
+    function probAt(k, n) {                     // 给定 k 的命中概率
+      if (k < 1 || k >= n) return 0;
+      var s = 0;
+      for (var i = k + 1; i <= n; i++) s += 1 / (i - 1);
+      return (k / n) * s;
+    }
+    function pResp(x, y) { return 1 / (1 + Math.exp(-BETA * (x - y + C0))); }
+    function bestY(x) {                         // 最优目标：argmax y·p(x,y)
+      var best = { y: 0, f: -9 };
+      for (var y = -1; y <= 4; y += 0.02) {
+        var f = y * pResp(x, y);
+        if (f > best.f) best = { y: y, f: f };
+      }
+      return best;
+    }
+    function thresh(cost) {                     // 出击门槛：f*(x) 刚好盖住 COST 的 x
+      for (var x = -3; x <= 3; x += 0.02) {
+        if (bestY(x).f > cost) return x;
+      }
+      return 3;
+    }
+    function eT(s, c, a, b) { return 1 / (LAM0 * Math.exp(-a * s - b * c)); }
+
+    function pc(x) { return (Math.round(x * 1000) / 10).toFixed(1) + '%'; }
+    function f2(x) { return (Math.round(x * 100) / 100).toFixed(2); }
+    function f4(x) { return (Math.round(x * 10000) / 10000).toFixed(4); }
+
+    // ── 问题图 ──
+    var WIZ = {
+      root: {
+        step: '处境',
+        q: '你现在最想解决的问题是哪一类？',
+        hint: '挑最接近的一条。后面每一步问什么，会跟着你的选择变。',
+        opts: [
+          { t: '还在找：见了几个，纠结要不要「定下来」', d: '不知道什么时候该收手、该不该再看看', go: 'd1' },
+          { t: '还在找：出手没人回应 / 匹配率很低', d: '消息石沉大海，怀疑自己标准定错了', go: 'r1' },
+          { t: '在关系里：经常冷战，吵完谁也不先开口', d: '同一个僵局反复出现', go: 'c1' },
+          { t: '在关系里：犹豫要不要继续', d: '想知道这段关系到底能撑多久', go: 's1' },
+          { t: '刚起步：还没怎么行动，想先把流程搭对', d: '从零开始，别走弯路', go: 'b1' },
+        ],
+      },
+
+      /* ── 分支 A：该不该定下来（模型 1 最优停止）── */
+      d1: {
+        step: '盘子', key: 'n',
+        q: '你未来这段时间（比如 1–2 年），认真接触的人大概有多少个？',
+        hint: '「认真接触」= 见过面、聊得下去、你会真的考虑的那种。粗估就行。',
+        opts: [
+          { t: '5–8 个', d: '圈子很固定，基本靠介绍', v: 6 },
+          { t: '10–15 个', d: '偶尔认识新人', v: 12 },
+          { t: '20–30 个', d: '有在用社交 / 约会产品', v: 25 },
+          { t: '50 个上下', d: '高频、主动在见人', v: 50 },
+          { t: '100 个以上', d: '把这件事当成在推进的项目', v: 100 },
+        ], go: 'd2',
+      },
+      d2: {
+        step: '进度', key: 'frac',
+        q: '这条路你已经走了大概几成？',
+        hint: '不是「见了几个」，是「你觉得这件事推进到哪了」。',
+        opts: [
+          { t: '还没开始 / 不到 1 成', v: 0.05 },
+          { t: '两成左右', v: 0.2 },
+          { t: '三分之一左右', v: 0.33 },
+          { t: '一半左右', v: 0.5 },
+          { t: '已经过半了', v: 0.7 },
+          { t: '快走完了（八成以上）', v: 0.85 },
+        ], go: 'd3',
+      },
+      d3: {
+        step: '参照点', key: 'seen',
+        q: '到目前为止，出现过「明显好过之前所有人」的人吗？',
+        hint: '37% 法则要求你能做相对比较——这一条决定你能不能真的执行它。',
+        opts: [
+          { t: '有，而且不止一个', v: 2 },
+          { t: '有，就一个', v: 1 },
+          { t: '没有，都差不多', v: 0 },
+          { t: '说不清——我没有可比的尺子', v: -1 },
+        ], go: 'd4',
+      },
+      d4: {
+        step: '可回头吗', key: 'back',
+        q: '你能回头找前面的人吗？（对方还在、也还愿意）',
+        hint: '「不可回头」是 37% 法则的前提之一。能回头的话，跳过一个人并不致命。',
+        opts: [
+          { t: '基本能回头', v: 1 },
+          { t: '基本回不了头', v: 0 },
+          { t: '不确定', v: 0.5 },
+        ], go: 'd5',
+      },
+      d5: {
+        step: '竞争', key: 'contest',
+        q: '你看上的人，会被别人先锁定吗？',
+        hint: '这一条把「等待」变成有成本的——等待有成本时，观察期要往前挪。',
+        opts: [
+          { t: '经常——犹豫两天就没了', v: 2 },
+          { t: '偶尔会', v: 1 },
+          { t: '基本不会，节奏很慢', v: 0 },
+        ], end: 'decide',
+      },
+
+      /* ── 分支 B：没人回应（模型 2 信息量 + 模型 5 吸引力）── */
+      r1: {
+        step: '出击量', key: 'sent',
+        q: '最近 3 个月，你主动发起了多少次接触？',
+        opts: [
+          { t: '不到 5 次', d: '基本没动', v: 3 },
+          { t: '5–15 次', v: 10 },
+          { t: '16–40 次', v: 25 },
+          { t: '40 次以上', v: 50 },
+        ], go: 'r2',
+      },
+      r2: {
+        step: '回应率', key: 'rate',
+        q: '其中有多少给了你回应？',
+        hint: '这是唯一一条「你自己的数据」——模型里其它数字都是示意值，只有这个是真的。',
+        opts: [
+          { t: '一个都没有', v: 0 },
+          { t: '不到两成', v: 0.15 },
+          { t: '大约一半', v: 0.5 },
+          { t: '大多数都回了', v: 0.75 },
+        ], go: 'r3',
+      },
+      r3: {
+        step: '目标高度', key: 'gap',
+        q: '你出手的对象，平均比你「受欢迎程度」高多少？',
+        hint: '按你自己圈子里的感觉估，不用精确——差一档就算 1 个标准差左右。',
+        opts: [
+          { t: '高很多，两个档都打不住', v: 2 },
+          { t: '高一些，大概一档', v: 1 },
+          { t: '差不多，跟我一个水平', v: 0 },
+          { t: '我不怎么挑，甚至往下也试过', v: -0.5 },
+        ], go: 'r4',
+      },
+      r4: {
+        step: '资料', key: 'words', multi: true, max: 3,
+        q: '你的资料 / 开场白里，最显眼的是哪三个词？',
+        hint: '挑三个你真的会写的。信息量 = log(1/p)，p 是「多少人也在写这个词」——越多人写，越不筛人。',
+        go: 'r5',
+      },
+      r5: {
+        step: '你的位置', key: 'x',
+        q: '在你实际能接触到的圈子里，你觉得自己大概在什么位置？',
+        hint: '不是问你优不优秀，是问你在这个具体市场里的相对位置。',
+        opts: [
+          { t: '前 10%', d: '经常被主动搭话', v: 1.28 },
+          { t: '前 30%', v: 0.52 },
+          { t: '中间', v: 0 },
+          { t: '后 30%', v: -0.52 },
+        ], go: 'r6',
+      },
+      r6: {
+        step: '代价', key: 'cost',
+        q: '一次「发了没回应」，对你的代价有多大？',
+        hint: '这就是模型里的 COST——它决定你值不值得继续出手。',
+        opts: [
+          { t: '无所谓，反正成本低', v: 0.05 },
+          { t: '有点难受，但不影响我', v: 0.15 },
+          { t: '挺打击的，会影响心情', v: 0.30 },
+          { t: '很受伤，我基本不敢主动了', v: 0.50 },
+        ], end: 'reach',
+      },
+
+      /* ── 分支 C：冷战（模型 4 Chicken）── */
+      c1: {
+        step: '时长', key: 'dur',
+        q: '一次冷战，平均持续多久？',
+        opts: [
+          { t: '几小时就过去了', v: 0.3 },
+          { t: '大概一天', v: 1 },
+          { t: '两三天', v: 2.5 },
+          { t: '一周以上', v: 7 },
+        ], go: 'c2',
+      },
+      c2: {
+        step: '谁先开口', key: 'who',
+        q: '通常是谁先开口？',
+        opts: [
+          { t: '基本都是我', v: 'me' },
+          { t: '大概一半一半', v: 'half' },
+          { t: '基本都是对方', v: 'them' },
+          { t: '常常没人开口，就这么凉下去', v: 'none' },
+        ], go: 'c3',
+      },
+      c3: {
+        step: '频率', key: 'freq',
+        q: '一年大概出现几次这样的僵局？',
+        opts: [
+          { t: '一两次', v: 1.5 },
+          { t: '三到六次', v: 4.5 },
+          { t: '差不多每月一次', v: 12 },
+          { t: '每周都有', v: 48 },
+        ], go: 'c4',
+      },
+      c4: {
+        step: '规则', key: 'rule',
+        q: '你们有没有事先约好「谁先让」的规则？',
+        hint: '关键在「事先」——吵起来的时候定规则是定不成的。',
+        opts: [
+          { t: '有，而且管用', v: 2 },
+          { t: '有，但吵起来就没照做', v: 1 },
+          { t: '从来没有', v: 0 },
+        ], go: 'c5',
+      },
+      c5: {
+        step: '生理', key: 'physio',
+        q: '吵到最凶的时候，你会先停下来等心跳回落吗？',
+        hint: 'Gottman 的 20 分钟实验：生理升级状态下，人是没有能力讲道理的。',
+        opts: [
+          { t: '会，我们都有这个默契', v: 2 },
+          { t: '想停，但停不住', v: 1 },
+          { t: '不会，一定要当场说清楚', v: 0 },
+        ], end: 'conflict',
+      },
+
+      /* ── 分支 D：要不要继续（模型 3 相似 / 互补）── */
+      s1: {
+        step: '相似度', key: 'sim',
+        q: '这五条里，你们一致的有几条？',
+        hint: '价值观 · 金钱观 · 生活节奏 · 要不要孩子 · 和原生家庭的边界。',
+        opts: [
+          { t: '五条全中', v: 5 },
+          { t: '四条', v: 4 },
+          { t: '三条', v: 3 },
+          { t: '两条', v: 2 },
+          { t: '一条', v: 1 },
+          { t: '一条都对不上', v: 0 },
+        ], go: 's2',
+      },
+      s2: {
+        step: '互补度', key: 'comp',
+        q: '你欣赏、但不必参与的差异有多少？',
+        hint: '互补的定义是「我欣赏但不需要跟我一样」——不是「我希望他改」。',
+        opts: [
+          { t: '挺多，我们互相补位', v: 0.85 },
+          { t: '有一两处', v: 0.5 },
+          { t: '几乎没有，我们太像了', v: 0.1 },
+        ], go: 's3',
+      },
+      s3: {
+        step: '想改的', key: 'change',
+        q: '你心里有几条是「我希望对方改」的？',
+        hint: 'Gottman：69% 的关系问题是永久性的、解决不掉的。这一条是最贵的信号。',
+        opts: [
+          { t: '没有，我不指望他改', v: 0 },
+          { t: '一条', v: 1 },
+          { t: '两条', v: 2 },
+          { t: '三条以上', v: 3 },
+        ], go: 's4',
+      },
+      s4: {
+        step: '能不能谈', key: 'talk',
+        q: '吵完之后，你们能回到问题本身吗？',
+        opts: [
+          { t: '能，吵完能复盘', v: 2 },
+          { t: '有时能，看状态', v: 1 },
+          { t: '基本不能，会翻旧账', v: 0 },
+        ], end: 'stay',
+      },
+
+      /* ── 分支 E：刚起步 ── */
+      b1: {
+        step: '流量', key: 'rate',
+        q: '你每周大概能认识几个新的人？',
+        opts: [
+          { t: '几乎没有', v: 0.3 },
+          { t: '一个左右', v: 1 },
+          { t: '两三个', v: 2.5 },
+          { t: '五个以上', v: 5 },
+        ], go: 'b2',
+      },
+      b2: {
+        step: '时限', key: 'horizon',
+        q: '你打算给这件事多长的时间？',
+        opts: [
+          { t: '半年', v: 6 },
+          { t: '一年', v: 12 },
+          { t: '两年', v: 24 },
+          { t: '不限，遇到再说', v: 36 },
+        ], go: 'b3',
+      },
+      b3: {
+        step: '资料', key: 'words', multi: true, max: 3,
+        q: '你的资料 / 开场白里，最显眼的是哪三个词？',
+        hint: '挑三个你真的会写的。信息量 = log(1/p)：写的人越少，这个词越能帮你筛出对的人。',
+        go: 'b4',
+      },
+      b4: {
+        step: '主动', key: 'init',
+        q: '你愿意主动发起接触吗？',
+        hint: '第 4 章稳定匹配定理：主动方拿到的是「所有稳定匹配里对自己最好的那一个」。',
+        opts: [
+          { t: '愿意，被拒也没什么', v: 2 },
+          { t: '有点怵，但会硬着头皮', v: 1 },
+          { t: '不愿意，我等别人来找我', v: 0 },
+        ], go: 'b5',
+      },
+      b5: {
+        step: '取向', key: 'goal',
+        q: '你最在意的是哪个？',
+        opts: [
+          { t: '效率——想尽快定下来', v: 'fast' },
+          { t: '质量——宁缺毋滥', v: 'quality' },
+          { t: '体验——多见见人也挺好', v: 'fun' },
+        ], end: 'begin',
+      },
+    };
+
+    var PATH_NAME = { decide: '该不该定下来', reach: '为什么没人回应', conflict: '冷战僵局', stay: '要不要继续', begin: '刚起步' };
+
+    // ── 状态 ──
+    var stack = [];        // [{node, val}]
+    var ans = {};
+    var cur = 'root';
+
+    var el = function (id) { return document.getElementById(id); };
+    var wizard = el('wizard'), body = el('wz-body'), out = el('wz-out');
+
+    function pathLen(start) {
+      var n = WIZ[start], c = 0;
+      while (n) { c++; n = n.go ? WIZ[n.go] : null; }
+      return c;
+    }
+    function totalSteps() {
+      // 1(处境) + 从分支起点走到 end
+      var first = stack.length ? stack[0].next : null;
+      var t = 1;
+      if (first) {
+        var n = WIZ[first], c = 0;
+        while (n) { c++; n = n.go ? WIZ[n.go] : null; }
+        t += c;
+      } else {
+        t += 4;
+      }
+      return t;
+    }
+
+    function render() {
+      var node = WIZ[cur];
+      var total = totalSteps();
+      var done = stack.length;
+      el('wz-prog-in').style.width = Math.round((done / total) * 100) + '%';
+      el('wz-step').textContent = '第 ' + (done + 1) + ' / ' + total + ' 步 · ' + node.step;
+      el('wz-path').textContent = stack.length && ans.__branch ? PATH_NAME[ans.__branch] : '五条分支，选你的处境';
+      el('wz-prev').disabled = stack.length === 0;
+      el('wz-prev').style.visibility = stack.length === 0 ? 'hidden' : 'visible';
+
+      var h = '';
+      h += '<h3 class="wz-q">' + node.q + '</h3>';
+      if (node.hint) h += '<p class="wz-hint">' + node.hint + '</p>';
+      if (node.multi) {
+        h += '<div class="wz-chips">';
+        WORDS.forEach(function (x) {
+          var on = (ans.words || []).indexOf(x.p) >= 0;
+          h += '<button class="wz-chip' + (on ? ' on' : '') + '" type="button" data-p="' + x.p + '">' +
+               x.w + '<em>' + Math.round(x.p * 100) + '%</em></button>';
+        });
+        h += '</div>';
+        h += '<div class="wz-okrow"><span class="wz-oktip" id="wz-oktip">已选 0 / ' + node.max + '</span>' +
+             '<button class="wz-ok" id="wz-ok" type="button" disabled>确定 →</button></div>';
+      } else {
+        h += '<div class="wz-opts">';
+        node.opts.forEach(function (o, i) {
+          h += '<button class="wz-opt" type="button" data-i="' + i + '">' +
+               '<span class="wz-opt-t">' + o.t + '</span>' +
+               (o.d ? '<span class="wz-opt-d">' + o.d + '</span>' : '') + '</button>';
+        });
+        h += '</div>';
+      }
+      body.innerHTML = h;
+
+      if (node.multi) {
+        var sel = (ans.words || []).slice();
+        body.querySelectorAll('.wz-chip').forEach(function (c) {
+          c.addEventListener('click', function () {
+            var p = parseFloat(c.getAttribute('data-p'));
+            var i = sel.indexOf(p);
+            if (i >= 0) sel.splice(i, 1);
+            else if (sel.length < node.max) sel.push(p);
+            else { sel.shift(); sel.push(p); }
+            ans.words = sel;
+            render();
+          });
+        });
+        var tip = el('wz-oktip'), ok = el('wz-ok');
+        tip.textContent = '已选 ' + sel.length + ' / ' + node.max + '　' +
+          (sel.length === node.max ? '（信息量合计 ' + f2(sel.reduce(function (a, b) { return a + idf(b); }, 0)) + '）' : '');
+        ok.disabled = sel.length !== node.max;
+        ok.addEventListener('click', function () { advance(node.go); });
+      } else {
+        body.querySelectorAll('.wz-opt').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var o = node.opts[parseInt(b.getAttribute('data-i'), 10)];
+            if (node.key) ans[node.key] = o.v;
+            // 分支目标可能挂在选项上（处境题）或节点上（其余题）
+            if (o.go) advance(o.go);
+            else if (node.go) advance(node.go);
+            else finish(node.end);
+          });
+        });
+      }
+    }
+
+    function advance(next) {
+      stack.push({ node: cur, next: next });
+      if (!ans.__branch) ans.__branch = branchOf(next);
+      cur = next;
+      render();
+      if (wizard.scrollIntoView) wizard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function branchOf(node) {
+      return node[0] === 'd' ? 'decide' : node[0] === 'r' ? 'reach' : node[0] === 'c' ? 'conflict' : node[0] === 's' ? 'stay' : 'begin';
+    }
+    function back() {
+      var last = stack.pop();
+      if (!last) return;
+      var prevNode = WIZ[last.node];
+      if (prevNode && prevNode.key) delete ans[prevNode.key];
+      cur = last.node;
+      if (!stack.length) { ans.__branch = null; }
+      out.hidden = true; wizard.hidden = false;
+      render();
+    }
+    function reset() {
+      stack = []; ans = {}; cur = 'root';
+      out.hidden = true; wizard.hidden = false;
+      render();
+    }
+
+    function finish(kind) {
+      if (!kind) { render(); return; }
+      var html = kind === 'decide' ? evalDecide(ans)
+        : kind === 'reach' ? evalReach(ans)
+        : kind === 'conflict' ? evalConflict(ans)
+        : kind === 'stay' ? evalStay(ans)
+        : evalBegin(ans);
+      wizard.hidden = true;
+      out.hidden = false;
+      out.innerHTML = html;
+      out.querySelectorAll('[data-goto]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var tab = document.querySelector('.tab[data-tab="models"]');
+          if (tab) tab.click();
+          var it = document.querySelector('.m-item[data-key="' + b.getAttribute('data-goto') + '"]');
+          if (it) it.click();
+        });
+      });
+      if (out.scrollIntoView) out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── 通用片段 ──
+    function kvs(list) {
+      return '<div class="wz-kvs">' + list.map(function (x) {
+        return '<div class="wz-kv"><span>' + x.k + '</span><b>' + x.v + '</b>' + (x.n ? '<em>' + x.n + '</em>' : '') + '</div>';
+      }).join('') + '</div>';
+    }
+    function sec(t, inner, cls) {
+      return '<div class="wz-sec ' + (cls || '') + '"><h4>' + t + '</h4>' + inner + '</div>';
+    }
+    function acts(list) {
+      return '<ol class="wz-list">' + list.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ol>';
+    }
+    function foot(models, tier) {
+      return '<div class="wz-foot">' +
+        '<div class="wz-chips-row">' + models.map(function (m) {
+          return '<button class="wz-goto" type="button" data-goto="' + m.k + '">' + m.t + '</button>';
+        }).join('') + '</div>' +
+        '<p class="wz-tier">' + tier + '</p>' +
+        '<div class="wz-btns"><button class="wz-btn" id="wz-again" type="button">换个处境，重做一遍</button></div>' +
+        '</div>';
+    }
+
+    // ══ 分支 A 评估：最优停止 ══
+    function evalDecide(a) {
+      var n = a.n, o = optStop(n), kStar = o.k, pStar = o.p;
+      var fBack = a.back >= 1 ? 1.15 : (a.back === 0.5 ? 1.05 : 1.0);
+      var fCon = a.contest >= 2 ? 0.70 : (a.contest === 1 ? 0.85 : 1.0);
+      var kRec = Math.max(1, Math.min(n - 1, Math.round(kStar * fBack * fCon)));
+      var pRec = probAt(kRec, n);
+      var kNow = Math.max(1, Math.round(a.frac * n));
+      var pNow = probAt(kNow, n);
+      var ratio = pStar > 0 ? pNow / pStar : 0;
+
+      var stage, verdict, tone;
+      if (kNow < kRec) {
+        stage = '观察期'; tone = 'look';
+        verdict = '你还在观察期里——<b>现在不要做承诺</b>。这一段唯一的任务是建立「目前为止最好的是什么水平」这把尺子。';
+      } else if (kNow <= kRec * 2) {
+        stage = '决策期'; tone = 'act';
+        verdict = '你已经进入决策期。<b>从现在开始，遇到第一个超过观察期最好水平的人就定下来</b>，不要再往后比——往后比的每一步都在降低命中率。';
+      } else {
+        stage = '观察期设太长了'; tone = 'late';
+        verdict = '你的观察期已经设过头了。按你现在这个位置执行，命中概率只剩峰值的 <b>' + pc(ratio) + '</b>——往前回不去了，但下一条规则仍然有效。';
+      }
+
+      var nums = [
+        { k: '你的 N', v: n + ' 人', n: '你自己的估计' },
+        { k: '基准观察期（严格 37% 法则）', v: kStar + ' 人', n: '占 ' + pc(kStar / n) + '，命中率 ' + f2(pStar) },
+        { k: '修正后建议观察期', v: kRec + ' 人', n: '×' + f2(fBack) + '(可回头) ×' + f2(fCon) + '(会被抢)' },
+        { k: '你现在的位置', v: '第 ' + kNow + ' 人', n: '走了 ' + pc(kNow / n) },
+        { k: '此刻执行规则能选中最好者的概率', v: pc(pNow), n: '= 峰值 ' + f2(pStar) + ' 的 ' + pc(ratio) },
+        { k: '理论上限（n → ∞）', v: f4(INV_E), n: '1/e' },
+      ];
+
+      var todo = [];
+      if (a.seen === -1) {
+        todo.unshift('<b>先造一把尺子</b>：写下 3 条「不能让」（价值观 / 金钱观 / 生活节奏 / 要不要孩子 / 原生家庭边界）。37% 法则的前提是「能相对比较」，没有尺子它根本无法执行——这是你现在唯一的阻塞项。');
+      }
+      if (stage === '观察期') {
+        todo.push('继续看，<b>不承诺</b>。每见一个，只更新一条记录：「目前为止最好的是什么水平」。');
+        todo.push('把 N 写下来盯住：你现在估的是 ' + n + ' 人，观察期到 <b>第 ' + kRec + ' 个</b>为止。');
+      } else if (stage === '决策期') {
+        todo.push('从第 ' + kRec + ' 个之后开始，<b>遇到第一个打破观察期纪录的人就定</b>，不再往后比。');
+        todo.push(a.seen >= 1
+          ? '你已经见过破纪录的人了——如果那个人还能联系，<b>先确认还在不在</b>；这一步比继续见新人划算。'
+          : '你还没见过破纪录的人，说明你的样本可能偏窄。先把 N 提高（多一个渠道），而不是把标准降低。');
+      } else {
+        todo.push('别再等了。观察期已经超了 <b>' + Math.max(0, kNow - kRec) + ' 人</b>，继续等是净损失。');
+        todo.push('换成「阈值规则」：以你已经见过的最好的人为线，下一个达到这条线的就定下来。');
+      }
+      if (a.contest >= 2) todo.push('你会被人抢先——所以观察期已经往前挪到 ' + kRec + ' 人。看到心动的人，<b>不要用「再看看」当默认动作</b>。');
+      if (a.back >= 1) todo.push('你能回头，这是你的优势：跳过的人没真的丢掉，所以你比模型假设的处境更宽松——可以比 ' + kRec + ' 更挑一点。');
+      todo.push('记住<b>偏离是不对称</b>的：观察期设短是打折（前 30% 仍有峰值的 98%），设长是腰斩（前 70% 只剩 68%）。拿不准就往早的一侧偏。');
+
+      return '<div class="wz-hero t-' + tone + '"><span class="wz-kick">评估结果 · 该不该定下来</span>' +
+        '<h3>你处在：<b>' + stage + '</b></h3><p class="wz-verdict">' + verdict + '</p></div>' +
+        kvs(nums) +
+        sec('按你的条件，接下来做什么（按划算程度排序）', acts(todo)) +
+        sec('🚩 别踩的坑', '<ul class="wz-list plain"><li>37% 是<b>结构参考</b>，不是操作指令——它的三条前提（N 已知、不可回头、只能相对比较）现实中一条都不严格成立。</li>' +
+          '<li>最优停止最大化的是「选中最好的那个」的概率，<b>不是「在一起之后过得好」的概率</b>。这两个目标会冲突。</li>' +
+          '<li>上面那两个修正系数（×' + f2(fBack) + ' / ×' + f2(fCon) + '）是<b>示意值，不是定理</b>——它们只给方向。</li></ul>', 'warn') +
+        foot([{ k: 'stop', t: '⏳ 模型 1 最优停止' }, { k: 'filter', t: '🧮 模型 9 条件相乘' }, { k: 'matching', t: '💍 模型 8 稳定匹配' }],
+          '🟢 结构性：k/n → 1/e、命中概率公式、偏离不对称——与参数无关。🟠 假设性：N 已知 / 不可回头 / 只能相对比较。🔴 参数性：那两个修正系数。');
+    }
+
+    // ══ 分支 B 评估：没人回应 ══
+    function evalReach(a) {
+      var x = a.x, gap = a.gap, y = x + gap;
+      var pExp = pResp(x, y);
+      var b = bestY(x), yStar = b.y, gapStar = yStar - x;
+      var thr = thresh(a.cost);
+      var worth = x > thr;
+      var idfSum = (a.words || []).reduce(function (s, p) { return s + idf(p); }, 0);
+      var idfMul = idfSum / IDF_VAGUE;
+      var gainX = pResp(x + 0.5, y) - pResp(x, y);
+      var gapToBest = pResp(x, x + gapStar) - pExp;
+
+      var diag, tone;
+      if (a.rate >= pExp * 0.8) {
+        tone = 'ok';
+        diag = '你的实测回应率 <b>' + pc(a.rate) + '</b> 跟模型在你这个差距下的预期 <b>' + pc(pExp) + '</b> 基本对得上——说明<b>不是你追太高</b>，问题在「量」：你 3 个月只出手了约 ' + a.sent + ' 次。';
+      } else if (a.gap >= 1.5) {
+        tone = 'warn';
+        diag = '实测 <b>' + pc(a.rate) + '</b> vs 模型预期 <b>' + pc(pExp) + '</b>：差距主要来自<b>目标太高</b>。你平均在追高 ' + f2(gap) + ' 个标准差的人，而你这个位置的最优差距是 <b>' + f2(gapStar) + '</b>。';
+      } else {
+        tone = 'warn';
+        diag = '实测 <b>' + pc(a.rate) + '</b> 明显低于模型预期 <b>' + pc(pExp) + '</b>，但你追的差距只有 ' + f2(gap) + '——所以<b>不是追太高的问题</b>。最可能的两处：资料没筛人（见下面信息量），或者样本量太小（' + a.sent + ' 次的波动本来就极大）。';
+      }
+
+      var nums = [
+        { k: '你的实测回应率', v: pc(a.rate), n: a.sent + ' 次出击里' },
+        { k: '模型预期（你这个差距下）', v: pc(pExp), n: '差距 ' + f2(gap) + ' 个标准差' },
+        { k: '你的最优目标差距', v: f2(gapStar) + ' σ', n: '差距调到这里，回应率 +' + pc(Math.max(0, gapToBest)) },
+        { k: '你的资料信息量', v: f2(idfSum), n: '= 纯虚词资料的 ' + f2(idfMul) + ' 倍（目标 4.3 倍）' },
+        { k: '你的出击门槛', v: f2(thr) + ' σ', n: '你的位置 ' + f2(x) + ' σ → ' + (worth ? '划算' : '不划算') },
+        { k: '把自己提 0.5 个标准差的收益', v: '+' + pc(gainX), n: '对所有目标同时生效' },
+      ];
+
+      var todo = [];
+      if (idfMul < 3) {
+        todo.push('<b>先改资料</b>：你现在的信息量只有 ' + f2(idfSum) + '（' + f2(idfMul) + ' 倍）。把形容词换成 3 个只有你会写的具体事实，可以涨到 7.75（4.3 倍）。这是<b>成本最低、见效最快</b>的一步——它不保证回应率，但保证来的人是对的。');
+      }
+      if (!worth) {
+        todo.push('<b>先降成本，别先降目标</b>：你这个心理成本（COST = ' + f2(a.cost) + '）下，出击门槛是 ' + f2(thr) + ' σ，而你在 ' + f2(x) + ' σ —— 数学上你现在出手是亏的。降成本的办法是把「一次成败」拆成「一次出击」：多发、少想、不在意单条结果。');
+      }
+      if (gap > gapStar + 0.3) {
+        todo.push('<b>把目标从 ' + f2(gap) + ' σ 调到 ' + f2(gapStar) + ' σ</b>：回应率能升 ' + pc(Math.max(0, gapToBest)) + '。注意这不是「将就」——最优目标本来就不是越高越好，因为漏掉了出击成本。');
+      }
+      if (a.sent < 15) {
+        todo.push('<b>先把量提上去</b>：你 3 个月才 ' + a.sent + ' 次。在这么小的样本上，任何「我的回应率是 X%」都没意义——先把基数做到 30 次以上，再来判断自己的参数。');
+      }
+      todo.push('<b>提升 x 永远优先</b>：把自己提 0.5 个标准差，你对<b>所有</b>目标的回应率同时涨 ' + pc(gainX) + '；抬高 y 只会把回应率压下去。这一条是结构性的，不依赖参数。');
+      if (a.cost >= 0.3) {
+        todo.push('你的 COST 是 ' + f2(a.cost) + '——报告里指出：成本 ≥ 0.35 时，连「平均水平的人」主动开口都不划算。这个模型在成本区间的<b>函数形式本身就值得怀疑</b>（固定成本 + 线性收益），所以它给你的结论是「降成本」，不是「别出手」。');
+      }
+
+      return '<div class="wz-hero t-' + tone + '"><span class="wz-kick">评估结果 · 为什么没人回应</span>' +
+        '<h3>诊断：<b>' + (tone === 'ok' ? '量不够，不是标准错' : (a.gap >= 1.5 ? '目标偏高 + 表达不筛人' : '不是追太高——是表达和样本量')) + '</b></h3>' +
+        '<p class="wz-verdict">' + diag + '</p></div>' +
+        kvs(nums) +
+        sec('按你的条件，接下来做什么（按划算程度排序）', acts(todo)) +
+        sec('🚩 别踩的坑', '<ul class="wz-list plain"><li>β=' + BETA + '、c=' + C0 + ' 是<b>示意参数</b>，「模型预期回应率」只能比<b>方向和相对大小</b>，不能当你的真实概率看。</li>' +
+          '<li>报告里最诚实的一条：为了让总回应率对上经验的 20%，只调容忍度 c 会把门槛推到 +1.14 σ（等于说大部分人不该开口）——这说明<b>函数形式是错的，不是参数没调好</b>。</li>' +
+          '<li>IDF 只衡量稀有度，不衡量「对匹配有没有用」。冷门但无关的词，IDF 也高。</li></ul>', 'warn') +
+        foot([{ k: 'idf', t: '✍️ 模型 2 信息量' }, { k: 'attraction', t: '🎯 模型 5 吸引力' }, { k: 'matching', t: '💍 模型 8 稳定匹配' }],
+          '🟢 结构性：信息量随常见度单调下降、提升 x 优于抬高 y、追 Top 1% 不占优。🟠 假设性：回应率随差距下降 + 出击有成本。🔴 参数性：β / c / COST 与上面所有绝对数值。');
+    }
+
+    // ══ 分支 C 评估：冷战 ══
+    function evalConflict(a) {
+      var pm = a.who === 'me' ? 0.9 : a.who === 'them' ? 0.1 : a.who === 'none' ? 0.2 : 0.5;
+      var pt = a.who === 'me' ? 0.1 : a.who === 'them' ? 0.9 : a.who === 'none' ? 0.2 : 0.5;
+      var E = 1 / (1 - (1 - pm) * (1 - pt));
+      var E80 = 1 / (1 - 0.2 * 0.2);
+      var extraDays = a.freq * (E - 1) * a.dur;
+      var extraDays80 = a.freq * (E80 - 1) * a.dur;
+
+      var diag, tone;
+      if (a.rule === 2) {
+        tone = 'ok';
+        diag = '你们已经有能用的规则了——这是所有解法里唯一一个把冷战期数<b>直接归零</b>的。剩下的只是执行。';
+      } else if (a.who === 'none') {
+        tone = 'late';
+        diag = '你们属于「谁都不开口、就那么凉下去」——这是期望僵持期数最高的一种（<b>' + f2(E) + ' 期</b>）。别再去解决「谁更愿意道歉」了，<b>把「谁让步」这件事从博弈里拿出来</b>。';
+      } else {
+        tone = 'warn';
+        diag = '你们的僵局是<b>协调问题，不是利益冲突</b>：两个纯策略纳什均衡都在「一个道歉、一个不道歉」上，均衡定了，但没定是谁——这就是冷战的本质。';
+      }
+
+      var nums = [
+        { k: '你的期望僵持期数', v: f2(E) + ' 期', n: '你 ' + pc(pm) + ' / 对方 ' + pc(pt) + ' 先开口' },
+        { k: '折算成一年', v: f2(extraDays) + ' 天', n: a.freq + ' 次 × 单次 ' + a.dur + ' 天 × 额外僵持' },
+        { k: '把「愿意道歉」拉到 80% 也只能到', v: f2(E80) + ' 期', n: '仍折合 ' + f2(extraDays80) + ' 天/年' },
+        { k: '改成轮流机制（相关均衡）', v: '0 期', n: '冷战清零，收益 +1.005 / 期' },
+        { k: '机制相对混合纳什的收益', v: '+1.005', n: '严格结论，与参数无关' },
+      ];
+
+      var todo = [];
+      if (a.rule === 0) {
+        todo.push('<b>现在就去定一条规则</b>——趁不吵架的时候。三个可直接抄的：「这周轮到谁先开口」「谁先冷静下来谁先说话」「按单双日」。关键不在规则本身，在于<b>它是外部的、事先定好的</b>，吵起来时不需要任何一方让步。');
+      } else if (a.rule === 1) {
+        todo.push('你们有规则但没照做——问题通常出在<b>规则定得太抽象</b>（比如「我们要多沟通」）。换成能被第三方判断的形式：谁、在什么条件下、先说什么。不能判定的规则等于没有规则。');
+      } else {
+        todo.push('规则已经有了，把它写下来贴在能看见的地方，并约定「吵到第几句时启动」。再好的规则，想不起来就等于没有。');
+      }
+      if (a.physio === 0) {
+        todo.push('<b>先加一条生理规则：吵到升级就各自离开 20 分钟</b>，等心跳回落再谈。Gottman 的实验直接支持这一条——生理升级状态下人<b>没有能力</b>讲道理，所以「当场说清楚」在生理上做不到。');
+      } else if (a.physio === 1) {
+        todo.push('你想停但停不住——把它变成<b>动作</b>而不是意志：约定一个具体信号（比如「我现在去倒杯水」），看到信号就各自暂停 20 分钟，不许追着说。');
+      } else {
+        todo.push('你们已经有冷静的默契，这是最难的一关，别丢。把它和上面的规则绑在一起：先冷静 → 再按规则决定谁先开口。');
+      }
+      todo.push('放弃「让我变得更愿意道歉」这条路：把 p 从 0.50 拉到 0.80，期数只从 1.33 降到 1.04，收益才 +0.842——因为随机化总会撞上「两个都不道歉」。<b>改机制，不改性格。</b>');
+      if (a.who === 'me' || a.who === 'them') {
+        todo.push('现在基本固定是' + (a.who === 'me' ? '你' : '对方') + '先开口——短期看似解决了，但这是一种<b>隐性负债</b>：它把「谁让步」变成默认分配，而不是共同决定。轮流机制正是用来替代它的。');
+      }
+
+      return '<div class="wz-hero t-' + tone + '"><span class="wz-kick">评估结果 · 冷战僵局</span>' +
+        '<h3>诊断：<b>' + (a.rule === 2 ? '机制已到位，缺执行' : (a.who === 'none' ? '最贵的那一类：没人开口' : '协调失败，不是感情问题')) + '</b></h3>' +
+        '<p class="wz-verdict">' + diag + '</p></div>' +
+        kvs(nums) +
+        sec('按你的条件，接下来做什么（按划算程度排序）', acts(todo)) +
+        sec('🚩 别踩的坑', '<ul class="wz-list plain"><li>单期 Chicken 解释的是<b>僵局</b>，不是<b>伤害</b>。涉及安全、背叛、成瘾的问题不是协调问题，不要用「谁先让步」去套。</li>' +
+          '<li>「年损失天数」是把「期」折成你填的单次时长算的，<b>量级参考，不是测量</b>——真正严格的是期数公式。</li>' +
+          '<li>相关均衡要求<b>双方都认这个外部信号</b>。 unilateral 宣布「以后轮流」没有用，规则必须共同约定。</li></ul>', 'warn') +
+        foot([{ k: 'chicken', t: '🧊 模型 4 Chicken' }, { k: 'hazard', t: '🌱 模型 3 相似/互补' }],
+          '🟢 结构性：混合纳什 p=0.50、期望期数公式、相关均衡收益 +1.005/期——由支付矩阵决定，不需要数据也不怕数据。🟠 假设性：把「先开口频率」当成 p。🔴 参数性：年损失天数里的单次时长折算。');
+    }
+
+    // ══ 分支 D 评估：要不要继续 ══
+    function evalStay(a) {
+      var s = a.sim / 5 * 0.9, c = a.comp;
+      var T = eT(s, c, AS, BC);
+      var Tflip = eT(s, c, BC, AS);
+      var Tsim = eT(Math.min(0.9, s + 0.2), c, AS, BC);
+      var Tcomp = eT(s, Math.min(0.9, c + 0.2), AS, BC);
+      var base = eT(0, 0, AS, BC);
+
+      var tone = T >= 8 ? 'ok' : T >= 3.5 ? 'warn' : 'late';
+      var verdict = T >= 8
+        ? '在这个示意参数下，你们的结构是稳的：期望时长 <b>' + f2(T) + ' 年</b>，是「完全不像也不互补」的基准（' + f2(base) + ' 年）的 <b>' + f2(T / base) + ' 倍</b>。'
+        : T >= 3.5
+        ? '中性区间：期望时长 <b>' + f2(T) + ' 年</b>（基准 ' + f2(base) + ' 年的 ' + f2(T / base) + ' 倍）。相似度是及格线，你们这条线<b>没有稳过</b>。'
+        : '及格线没过：期望时长只有 <b>' + f2(T) + ' 年</b>。注意这不是「你们不相爱」——它说的是<b>结构上的摩擦会持续消耗</b>。';
+
+      var nums = [
+        { k: '你的相似度 s', v: f2(s), n: a.sim + ' / 5 条一致' },
+        { k: '你的互补度 c', v: f2(c), n: '' },
+        { k: '期望时长 E[T]', v: f2(T) + ' 年', n: '= 基准 ' + f2(base) + ' 年的 ' + f2(T / base) + ' 倍' },
+        { k: '相似度再提 0.2', v: f2(Tsim) + ' 年', n: '+' + f2(Tsim - T) + ' 年' },
+        { k: '互补度再提 0.2', v: f2(Tcomp) + ' 年', n: '+' + f2(Tcomp - T) + ' 年' },
+        { k: '把权重倒过来（a:b = 0.6:2.2）', v: f2(Tflip) + ' 年', n: '结论会变——这是参数性的' },
+      ];
+
+      var todo = [];
+      if (a.change >= 2) {
+        todo.unshift('<b>先处理那 ' + a.change + ' 条「我希望对方改」</b>。Gottman：69% 的关系问题是永久性的、解决不掉的。所以真正的判断题不是「他会不会改」，而是「<b>他不改，我能不能接受</b>」——不能接受就当场筛掉，能接受就把它从「问题清单」里划掉，别放在中间耗。');
+      }
+      todo.push('相似是及格线、互补是加分项：在你这组值上，相似度提 0.2 换来 +' + f2(Tsim - T) + ' 年，互补度提 0.2 只换 +' + f2(Tcomp - T) + ' 年——<b>优先补相似</b>。');
+      if (a.sim <= 2) {
+        todo.push('你们五条里只对上 ' + a.sim + ' 条。把这五条逐条写下来（价值观 / 金钱观 / 生活节奏 / 要不要孩子 / 原生家庭边界），<b>只对上两条就继续</b>，得清楚代价是什么。');
+      }
+      if (a.talk === 0) {
+        todo.push('吵完不能回到问题本身，是这一组里最伤的一项——它意味着你们<b>没有修复机制</b>。先解决修复机制（回到分支 C 的 20 分钟 + 外部规则），再来判断要不要继续。');
+      } else if (a.talk === 1) {
+        todo.push('修复机制不稳定。把它从「看状态」变成「有流程」：什么时候停、谁来重启、重启第一句说什么。');
+      }
+      todo.push('把「我希望对方改」的项目<b>逐条重新归类</b>：凡是「我希望他改」的 → 归相似类、当场决定能不能接受；凡是「我欣赏但不必参与」的 → 才归互补类。很多人把前者当成后者，这是这套模型里最常见的误用。');
+
+      return '<div class="wz-hero t-' + tone + '"><span class="wz-kick">评估结果 · 要不要继续</span>' +
+        '<h3>结构判定：<b>' + (T >= 8 ? '稳' : T >= 3.5 ? '中性' : '及格线没过') + '</b>　期望 ' + f2(T) + ' 年</h3>' +
+        '<p class="wz-verdict">' + verdict + '</p></div>' +
+        kvs(nums) +
+        sec('按你的条件，接下来做什么（按划算程度排序）', acts(todo)) +
+        sec('🚩 别踩的坑', '<ul class="wz-list plain"><li><b>这个排序不是定理，是参数假设的产物。</b>把权重倒过来（a:b = 0.6:2.2），你的期望时长就变成 ' + f2(Tflip) + ' 年——结论会翻转。所以正确说法是：「如果你认为相似的权重是互补的 ' + f2(AS / BC) + ' 倍，那么……」。</li>' +
+          '<li>E[T] 是<b>人群层面的期望值</b>，不是对你这段关系的预测。它不认识你们两个人。</li>' +
+          '<li>λ₀ = 0.5（基准 2.0 年）是示意值，绝对年数没有实证支撑；能用的是<b>倍数和方向</b>。</li></ul>', 'warn') +
+        foot([{ k: 'hazard', t: '🌱 模型 3 相似/互补' }, { k: 'chicken', t: '🧊 模型 4 Chicken' }, { k: 'sensitivity', t: '🎚 模型 6 敏感性' }],
+          '🟢 结构性：风险率形式下 s、c 的边际方向。🟠 假设性：风险率是指数形式。🔴 参数性：a / b / λ₀ 全是示意值——所以「' + f2(T) + ' 年」这个绝对数字只能当相对刻度看。');
+    }
+
+    // ══ 分支 E 评估：刚起步 ══
+    function evalBegin(a) {
+      var perYear = a.rate * 52;
+      var observeMonths = a.horizon * INV_E;
+      var observeCount = perYear * (a.horizon / 12) * INV_E;
+      var idfSum = (a.words || []).reduce(function (s, p) { return s + idf(p); }, 0);
+      var idfMul = idfSum / IDF_VAGUE;
+      var tone = idfMul >= 3 ? 'ok' : 'warn';
+
+      var nums = [
+        { k: '你一年能认识', v: Math.round(perYear) + ' 人', n: '按每周 ' + a.rate + ' 人' },
+        { k: '你的观察期（37%）', v: f2(observeMonths) + ' 个月', n: '总时长 ' + a.horizon + ' 个月 × 1/e' },
+        { k: '观察期内大概会接触', v: Math.round(observeCount) + ' 人', n: '这段只观察、不承诺' },
+        { k: '你的资料信息量', v: f2(idfSum), n: '= 纯虚词资料的 ' + f2(idfMul) + ' 倍（目标 4.3 倍）' },
+        { k: '主动方 vs 被动方', v: '5.7 / 35.6', n: '平均志愿序，差 30 位' },
+      ];
+
+      var todo = [];
+      if (idfMul < 3) {
+        todo.push('<b>第一件事：改资料。</b>你现在的信息量 ' + f2(idfSum) + '（' + f2(idfMul) + ' 倍），三个形容词加起来还不如一个「滑板」。换成 3 个只有你会写的具体事实 → 7.75（4.3 倍）。判据就一句：「这句话换个人也能写吗？」能 → 删。');
+      } else {
+        todo.push('资料已经能筛人了（' + f2(idfMul) + ' 倍）。把它再收一刀：把最泛的那个词换掉。');
+      }
+      if (a.rate <= 1) {
+        todo.push('<b>你的瓶颈是流量，不是标准。</b>每周 ' + a.rate + ' 人 → 一年 ' + Math.round(perYear) + ' 人。在这么小的池子上，任何策略都没用——先加一个渠道（兴趣活动 / 朋友介绍 / 产品），再谈最优停止。');
+      }
+      todo.push('<b>先观察 ' + f2(observeMonths) + ' 个月，不承诺。</b>注意这是结构性结论：不管你每周见几个人，观察期都占总时长的 37%（1/e）——所以它是「时间比例」，不是「人数」。');
+      if (a.init === 0) {
+        todo.push('<b>把「等别人来找我」改成「我提一次」。</b>第 4 章稳定匹配定理：主动方平均落在第 <b>5.7 志愿</b>，被动方落在第 <b>35.6 志愿</b>；主动方最差的人落在第 30.6 志愿，被动方最差的平均落到第 172.2 志愿。两个匹配同样稳定，差别只来自谁在提出。代价只有一个：你承受得起被拒绝。');
+      } else if (a.init === 1) {
+        todo.push('你会硬着头皮主动——把它变成<b>流程而不是勇气</b>：每周固定 N 次，发完就关掉 App。COST 越低，出击门槛越低（门槛会往下移）。');
+      } else {
+        todo.push('你愿意主动，这是最大的优势。把它配上规则：提一次、拿到明确答复，这个动作就完成——<b>区分「提出」和「纠缠」</b>。');
+      }
+      if (a.goal === 'fast') {
+        todo.push('你要效率 → <b>严格按 37% 执行，拿不准就往早的一侧偏</b>。偏离是不对称的：设短是打折，设长是腰斩。');
+      } else if (a.goal === 'quality') {
+        todo.push('你要质量 → 先做两件事再谈策略：写下 3 条「不能让」当筛子，把「有眼缘」这类要见到人才知道的条件<b>挪出筛选阶段</b>（模型 9：放开它池子涨 20 倍，它是最贵的条件）。');
+      } else {
+        todo.push('你重体验 → 观察期可以比 ' + f2(observeMonths) + ' 个月更长，但要记住代价曲线：跳到 70% 只剩峰值的 68%，跳到 90% 只剩 26%。<b>右偏是有价格的</b>。');
+      }
+      todo.push('顺手换掉一个习惯用法：看到任何「平均」先问中位数。长尾分布下 <b>78.8% 的人在平均值下面</b>——你的自我定位如果用错了尺子，后面所有策略都跟着错。');
+
+      return '<div class="wz-hero t-' + tone + '"><span class="wz-kick">评估结果 · 刚起步</span>' +
+        '<h3>你的第一瓶颈：<b>' + (a.rate <= 1 ? '流量太少' : idfMul < 3 ? '资料不筛人' : '没有规则') + '</b></h3>' +
+        '<p class="wz-verdict">一年约 <b>' + Math.round(perYear) + '</b> 个新面孔，观察期 <b>' + f2(observeMonths) + ' 个月</b>，资料信息量 <b>' + f2(idfMul) + ' 倍</b>。下面按「先改哪个最划算」排好了。</p></div>' +
+        kvs(nums) +
+        sec('按你的条件，接下来做什么（按划算程度排序）', acts(todo)) +
+        sec('🚩 别踩的坑', '<ul class="wz-list plain"><li>「一年 ' + Math.round(perYear) + ' 人」是你填的每周流量 × 52，<b>没有打折</b>——现实中「认识」到「认真接触」还要再乘一个远小于 1 的系数。</li>' +
+          '<li>主动占优是<b>定理</b>，但它的前提是「你承受得起被拒绝」，而且是提一次、拿答复就结束。</li>' +
+          '<li>别把「观察期不承诺」理解成「观察期不投入」——观察的是标准，不是感情。</li></ul>', 'warn') +
+        foot([{ k: 'stop', t: '⏳ 模型 1 最优停止' }, { k: 'idf', t: '✍️ 模型 2 信息量' }, { k: 'matching', t: '💍 模型 8 稳定匹配' }, { k: 'longtail', t: '📊 模型 11 长尾' }],
+          '🟢 结构性：37% 是时间比例（与流量无关）、主动方占优（定理）、78.8%（模拟与理论 Φ(σ/2) 吻合）。🟠 假设性：流量稳定、机会排队来。🔴 参数性：资料词表的 p 值来自示意分布。');
+    }
+
+    // ── 绑定 ──
+    el('wz-prev').addEventListener('click', back);
+    el('wz-reset').addEventListener('click', reset);
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'wz-again') reset();
+    });
+    var cta = el('wz-cta');
+    if (cta) cta.addEventListener('click', function () {
+      var t = document.querySelector('.tab[data-tab="howto"]');
+      if (t) t.click();
+      wizard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    if ((location.hash || '') === '#wizard') {
+      var t0 = document.querySelector('.tab[data-tab="howto"]');
+      if (t0) t0.click();
+    }
+    render();
+  })();
+</script>
+
 <style is:global>
   :root { --bg-url: url('/love-blog/24solar-bg.png'); }
   body::before {
@@ -706,6 +1546,77 @@ python3 build_report.py                 # 重新生成本页数据</code></pre>
   .reward-qr img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .reward-col p { margin: 8px 0 0; font-size: 14px; }
   .foot-note { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; line-height: 1.7; }
+
+  /* 顶部 CTA */
+  .cta-row { margin: 0 0 20px; }
+  .cta-btn { width: 100%; text-align: left; padding: 14px 18px; border: 1px dashed var(--accent); border-radius: 12px; background: rgba(224,69,123,0.06); color: var(--accent); font-size: 15px; font-weight: 600; cursor: pointer; transition: .18s; }
+  .cta-btn:hover { background: var(--accent); color: #fff; border-style: solid; }
+
+  /* ══ 决策向导 ══ */
+  .wz { border: 1px solid var(--border); border-radius: 14px; padding: 22px; background: var(--bg); margin: 0 0 20px; }
+  .wz-head { margin-bottom: 16px; }
+  .wz-kick { display: inline-block; font-size: 12px; letter-spacing: 1.5px; color: var(--accent); font-weight: 700; margin-bottom: 6px; }
+  .wz-h { font-size: 20px; margin: 0 0 8px; line-height: 1.45; }
+  .wz-sub { margin: 0; font-size: 14px; line-height: 1.8; color: var(--muted); }
+  .wz-sub b { color: var(--accent); }
+  .wz-prog { height: 6px; border-radius: 999px; background: var(--code-bg); border: 1px solid var(--border); overflow: hidden; margin-bottom: 10px; }
+  .wz-prog-in { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+  .wz-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .wz-step { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .wz-path { font-size: 12.5px; color: var(--muted); }
+  .wz-q { font-size: 18px; margin: 0 0 8px; line-height: 1.5; }
+  .wz-hint { margin: 0 0 14px; font-size: 13.5px; color: var(--muted); line-height: 1.75; }
+  .wz-opts { display: flex; flex-direction: column; gap: 9px; }
+  .wz-opt { display: block; width: 100%; text-align: left; padding: 13px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--fg); cursor: pointer; transition: .15s; }
+  .wz-opt:hover { border-color: var(--accent); background: rgba(224,69,123,0.05); }
+  .wz-opt-t { display: block; font-size: 15px; font-weight: 600; line-height: 1.5; }
+  .wz-opt-d { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.6; }
+  .wz-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .wz-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--fg); font-size: 14px; cursor: pointer; transition: .15s; }
+  .wz-chip em { font-style: normal; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .wz-chip:hover { border-color: var(--accent); }
+  .wz-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .wz-chip.on em { color: rgba(255,255,255,0.8); }
+  .wz-okrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .wz-oktip { font-size: 13px; color: var(--muted); }
+  .wz-ok { padding: 9px 20px; border: 1px solid var(--accent); border-radius: 999px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .wz-ok:disabled { opacity: .4; cursor: not-allowed; background: var(--code-bg); color: var(--muted); border-color: var(--border); }
+  .wz-nav { display: flex; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .wz-btn { padding: 8px 16px; border: 1px solid var(--accent); border-radius: 999px; background: var(--accent); color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .wz-btn.ghost, .wz-btn:disabled { background: transparent; color: var(--muted); border-color: var(--border); }
+  .wz-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* 结果 */
+  .wz-out { border: 1px solid var(--border); border-radius: 14px; padding: 22px; background: var(--bg); margin: 0 0 20px; }
+  .wz-hero { border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; border-left: 5px solid var(--accent); background: var(--code-bg); }
+  .wz-hero h3 { margin: 4px 0 8px; font-size: 20px; }
+  .wz-hero h3 b { color: var(--accent); }
+  .wz-verdict { margin: 0; font-size: 14.5px; line-height: 1.85; }
+  .wz-verdict b { color: var(--accent); }
+  .wz-hero.t-ok { border-left-color: #16a34a; background: rgba(22,163,74,0.07); }
+  .wz-hero.t-warn { border-left-color: #d97706; background: rgba(217,119,6,0.08); }
+  .wz-hero.t-late { border-left-color: #dc2626; background: rgba(220,38,38,0.07); }
+  .wz-hero.t-look { border-left-color: #6366f1; background: rgba(99,102,241,0.07); }
+  .wz-hero.t-act { border-left-color: #16a34a; background: rgba(22,163,74,0.07); }
+  .wz-kvs { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 9px; margin-bottom: 18px; }
+  .wz-kv { background: var(--code-bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; }
+  .wz-kv span { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+  .wz-kv b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; margin: 2px 0; color: var(--accent); }
+  .wz-kv em { display: block; font-size: 11.5px; font-style: normal; color: var(--muted); line-height: 1.5; }
+  .wz-sec { margin-bottom: 18px; }
+  .wz-sec h4 { font-size: 15.5px; margin: 0 0 8px; padding-left: 10px; border-left: 4px solid var(--accent); }
+  .wz-sec.warn h4 { border-left-color: #d97706; }
+  .wz-sec.warn { background: rgba(217,119,6,0.06); border-radius: 0 10px 10px 0; padding: 12px 14px; border: 1px solid var(--border); border-left: none; }
+  .wz-list { padding-left: 20px; margin: 0; }
+  .wz-list li { margin: 8px 0; font-size: 14.5px; line-height: 1.85; }
+  .wz-list b { color: var(--accent); }
+  .wz-list.plain li { font-size: 13.5px; color: var(--fg); }
+  .wz-foot { border-top: 1px solid var(--border); padding-top: 14px; }
+  .wz-chips-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .wz-goto { padding: 6px 13px; border: 1px dashed var(--accent); border-radius: 999px; background: transparent; color: var(--accent); font-size: 13px; cursor: pointer; }
+  .wz-goto:hover { background: var(--accent); color: #fff; border-style: solid; }
+  .wz-tier { font-size: 12.5px; color: var(--muted); line-height: 1.8; margin: 0 0 12px; }
+  .wz-btns { display: flex; gap: 10px; }
 
   @media (max-width: 720px) {
     .m-layout { grid-template-columns: 1fr; }
