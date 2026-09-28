@@ -69,6 +69,14 @@ const freeCount = chapters.filter((c) => c.free).length;
       </span>
       <span class="lab-go">三张尺 →</span>
     </a>
+    <a class="lab lab-quest" href={`${base}love-quest/`}>
+      <span class="lab-ico">🎮</span>
+      <span class="lab-body">
+        <span class="lab-t">爱情八关：先判断你在哪一幕，再决定该做哪些判断</span>
+        <span class="lab-d">闯关版。两道题定位你在第几幕（找 / 追 / 处 / 久），系统标出你的<b>必修关</b>；八关分别是：怎么找到真爱、怎么找最爱、怎么写资料、该追多好的人、要不要主动、怎么送礼、怎么道歉、怎么让关系长久。<b>选完立即判定 + 四选项完整对照</b></span>
+      </span>
+      <span class="lab-go">去闯关 →</span>
+    </a>
   </section>
 
   <section class="engage">
@@ -116,6 +124,7 @@ const freeCount = chapters.filter((c) => c.free).length;
   .lab-math { border-left: 4px solid #6366f1; }
   .lab-type { border-left: 4px solid var(--accent); }
   .lab-pers { border-left: 4px solid #16a34a; }
+  .lab-quest { border-left: 4px solid #d97706; }
   .lab-ico { font-size: 28px; flex: none; }
   .lab-body { flex: 1; display: flex; flex-direction: column; gap: 3px; }
   .lab-t { font-weight: 700; font-size: 17px; }

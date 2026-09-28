@@ -275,7 +275,10 @@ const paramsNote = '模型 3 的 a、b 与模型 5 的 β、c、COST、模型 9 
     </ol>
   </div>
 
-  <p class="cta-row"><button class="cta-btn" id="wz-cta" type="button">🧭 不确定该用哪一条？做 5 道选择题，直接给你一份评估 →</button></p>
+  <div class="cta-row">
+    <button class="cta-btn" id="wz-cta" type="button">🧭 不确定该用哪一条？做 5 道选择题，直接给你一份评估 →</button>
+    <a class="cta-btn cta-game" href={`${base}love-quest/`}>🎮 或者闯关：先判断你在哪一幕，再打八关（怎么找最爱 / 怎么道歉 / 怎么送礼 / 怎么长久）→</a>
+  </div>
 
   <nav class="tabs" id="tabs" aria-label="内容切换">
     <button class="tab on" data-tab="models" type="button">🧩 十二个模型</button>
@@ -283,7 +286,8 @@ const paramsNote = '模型 3 的 a、b 与模型 5 的 β、c、COST、模型 9 
     <button class="tab" data-tab="howto" type="button">🧭 帮我判断</button>
     <button class="tab" data-tab="valid" type="button">🔬 是否有效</button>
     <button class="tab" data-tab="source" type="button">📐 数据与复现</button>
-    <a class="tab quiz-cta" href={`${base}love-personality/`}>📐 做人格测试：三张尺 →</a>
+    <a class="tab quiz-cta" href={`${base}love-quest/`}>🎮 闯关</a>
+    <a class="tab quiz-cta" href={`${base}love-personality/`}>📐 三张尺</a>
   </nav>
 
   <!-- ── TAB 1：十二个模型 ── -->
@@ -1389,6 +1393,25 @@ python3 build_report.py                 # 重新生成本页数据</code></pre>
       var t0 = document.querySelector('.tab[data-tab="howto"]');
       if (t0) t0.click();
     }
+
+    // ── 每个模型卡挂上「相关关卡」，连到 /love-quest/ ──
+    (function () {
+      var LV = { filter: [1], stop: [2], idf: [3, 6], attraction: [4], matching: [5], chicken: [7], hazard: [8] };
+      var b0 = document.querySelector('.brand');
+      var B = b0 ? b0.getAttribute('href') : '/love-blog/';
+      document.querySelectorAll('.m-card').forEach(function (c) {
+        var k = c.getAttribute('data-key');
+        var ns = LV[k];
+        if (!ns) return;
+        var p = document.createElement('p');
+        p.className = 'm-quest';
+        p.innerHTML = '<a href="' + B + 'love-quest/?lv=' + ns[0] + '">🎮 相关关卡：' +
+          ns.map(function (n) { return '第 ' + n + ' 关'; }).join('、') + ' →</a>';
+        var vd = c.querySelector('.vd');
+        if (vd && vd.nextSibling) c.insertBefore(p, vd.nextSibling); else c.appendChild(p);
+      });
+    })();
+
     render();
   })();
 </script>
@@ -1475,6 +1498,9 @@ python3 build_report.py                 # 重新生成本页数据</code></pre>
   .vd-assumption { background: rgba(217,119,6,0.06); border-left: 3px solid #d97706; }
   .vd-meta { background: rgba(99,102,241,0.06); border-left: 3px solid #6366f1; }
   .lm b { color: var(--accent); }
+  .m-quest { margin: 10px 0 0; font-size: 13.5px; }
+  .m-quest a { color: #6366f1; font-weight: 600; }
+  :root[data-theme="dark"] .m-quest a { color: #a5b4fc; }
 
   /* 章节 */
   .ch-wrap { display: flex; flex-direction: column; gap: 10px; }
@@ -1548,9 +1574,11 @@ python3 build_report.py                 # 重新生成本页数据</code></pre>
   .foot-note { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; line-height: 1.7; }
 
   /* 顶部 CTA */
-  .cta-row { margin: 0 0 20px; }
-  .cta-btn { width: 100%; text-align: left; padding: 14px 18px; border: 1px dashed var(--accent); border-radius: 12px; background: rgba(224,69,123,0.06); color: var(--accent); font-size: 15px; font-weight: 600; cursor: pointer; transition: .18s; }
+  .cta-row { margin: 0 0 20px; display: flex; flex-direction: column; gap: 9px; }
+  .cta-btn { display: block; width: 100%; text-align: left; text-decoration: none; padding: 13px 17px; border: 1px dashed var(--accent); border-radius: 12px; background: rgba(224,69,123,0.06); color: var(--accent); font-size: 14.5px; font-weight: 600; cursor: pointer; transition: .18s; }
   .cta-btn:hover { background: var(--accent); color: #fff; border-style: solid; }
+  .cta-game { border-color: #6366f1; background: rgba(99,102,241,0.07); color: #6366f1; }
+  .cta-game:hover { background: #6366f1; color: #fff; }
 
   /* ══ 决策向导 ══ */
   .wz { border: 1px solid var(--border); border-radius: 14px; padding: 22px; background: var(--bg); margin: 0 0 20px; }

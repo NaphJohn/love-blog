@@ -1,0 +1,683 @@
+---
+import SiteHeader from '../components/SiteHeader.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<script is:inline>
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      if (t !== 'light' && t !== 'dark') {
+        t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
+
+<SiteHeader lang="zh" series="心动解码" />
+
+<main class="qz">
+  <p class="kicker">✦ 爱情数学 · 闯关版 · 八关四幕</p>
+  <h1>爱情八关：先判断你在哪一幕，再决定该做哪些判断</h1>
+  <p class="meta">每一关都是一个具体场景 + 四个判断，选完立刻告诉你<b>数学上哪个更优</b>、为什么，以及它对应十二个模型里的哪一个。数字与 <a href={`${base}love-math/`}>爱情数学</a> 同源，全部现算。</p>
+
+  <!-- ══ 阶段定位 ══ -->
+  <section class="qz-box" id="v-pos">
+    <div class="qz-box-head">
+      <span class="qz-kick">第 0 步 · 定位</span>
+      <h2>你现在在第几幕？</h2>
+      <p class="qz-sub">两道题。答完告诉你当前该打哪几关（必修），其余是支线，可以打也可以跳过。</p>
+    </div>
+    <div class="pos-q" id="pos-q1"></div>
+    <div class="pos-q" id="pos-q2" hidden></div>
+    <div class="pos-out" id="pos-out" hidden></div>
+    <div class="pos-skip"><button class="qz-btn ghost" id="pos-skip" type="button">跳过定位，直接从第 1 关开始 →</button></div>
+  </section>
+
+  <!-- ══ 关卡地图 ══ -->
+  <section class="qz-box" id="v-map" hidden>
+    <div class="map-head">
+      <div>
+        <span class="qz-kick">关卡地图</span>
+        <h2 id="map-h">八关 · 四幕</h2>
+      </div>
+      <div class="map-score">
+        <span id="map-score">0 / 16</span>
+        <button class="qz-btn ghost" id="map-finish" type="button">看结算 →</button>
+        <button class="qz-btn ghost" id="map-repos" type="button">重新定位</button>
+      </div>
+    </div>
+    <p class="qz-hint" id="map-tip"></p>
+    <div id="map-acts"></div>
+  </section>
+
+  <!-- ══ 单关 ══ -->
+  <section class="qz-box" id="v-level" hidden>
+    <button class="qz-back" id="lv-back" type="button">← 回到地图</button>
+    <div id="lv-body"></div>
+    <div class="lv-nav" id="lv-nav" hidden>
+      <button class="qz-btn" id="lv-next" type="button">下一关 →</button>
+      <button class="qz-btn ghost" id="lv-retry" type="button">重做本关</button>
+    </div>
+  </section>
+
+  <!-- ══ 结算 ══ -->
+  <section class="qz-box" id="v-result" hidden>
+    <div id="res-body"></div>
+    <div class="lv-nav">
+      <button class="qz-btn" id="res-again" type="button">全部重打</button>
+      <button class="qz-btn ghost" id="res-map" type="button">回到地图</button>
+    </div>
+  </section>
+
+  <section class="engage">
+    <p class="engage-tip">觉得有用？欢迎请作者喝杯咖啡 ☕️</p>
+    <div class="reward">
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/alipay.png`} alt="支付宝收款码" loading="lazy" /></div>
+        <p>支付宝</p>
+      </div>
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/wechat.png`} alt="微信收款码" loading="lazy" /></div>
+        <p>微信</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="engage-links">
+    <a href={`${base}love-math/`} class="lnk">🧩 爱情数学：九章 × 十二个模型 →</a>
+    <a href={`${base}love-math/#wizard`} class="lnk">🧭 决策向导：5 道题给你一份评估 →</a>
+    <a href={`${base}love-personality/`} class="lnk">📐 人格三张尺 →</a>
+  </p>
+
+  <p class="foot-note">⚠️ 本文为读书笔记与自建模型的复现，不构成心理学、心理咨询或专业建议。第 6 关（送礼）是把「信息量」模型做的类比迁移，不是原书结论、也没有实证支持，已在关内标注。</p>
+</main>
+
+<script is:inline>
+  (function () {
+    var BASE = document.querySelector('a.lnk') ? document.querySelector('a.lnk').getAttribute('href').replace(/love-math\/.*$/, '') : '/love-blog/';
+    var LS = 'love-quest-v1';
+
+    /* ══ 关卡数据 ══ */
+    var ACTS = [
+      { id: 1, name: '找', sub: '还没定下来', desc: '这一幕要解决的问题是「池子」和「时机」——不是努力程度。' },
+      { id: 2, name: '追', sub: '有人了，还没成', desc: '这一幕要解决的问题是「表达」和「目标定位」——不是诚意。' },
+      { id: 3, name: '处', sub: '在一起了', desc: '这一幕要解决的问题是「机制」——不是谁更爱谁。' },
+      { id: 4, name: '久', sub: '要一直走下去', desc: '这一幕要解决的问题是「结构」——不是忍耐力。' },
+    ];
+
+    var LEVELS = [
+      {
+        id: 1, act: 1, emoji: '🧮', key: 'filter', model: '模型 9 条件相乘',
+        title: '怎么找到真爱：先给条件排个序',
+        scene: '你列了 7 条择偶条件。按这个清单在 2000 万人里筛下来只剩 <b>90 人</b>——一生认真接触 1000 人，碰到一个的概率 <b>0.45%</b>。你准备改清单，怎么改最有效？',
+        q: '你的判断是？',
+        opts: [
+          { t: '删掉「有眼缘」和「聊得来」这两条', d: '这两条最说不清，也最舍不得', s: 2, tag: 'best',
+            why: '对。放开这两条各涨 <b>20 倍</b>，七条变五条，命中率从 0.45% 直接跳到 <b>83.50%</b>。它们最贵不是因为苛刻，而是因为「要见到人才能判断 + 又要求是前百分之几」——两个坏条件它全占了。' },
+          { t: '每条都放松一点', d: '身高 175→172、年龄 ±3 岁、收入降一档', s: 1, tag: 'ok',
+            why: '方向对但效率最低：每条放松都在做乘法，而你把最贵那两条原封不动留着，池子涨得最慢。' },
+          { t: '多注册几个 App，把总池子扩大', d: '池子小是平台的问题', s: 0, tag: 'bad',
+            why: '两条最贵的条件要 <b>×400</b> 才抵消得掉（20 × 20）。靠扩大入口做不到——条件是在做<b>乘法</b>不是减法，基数从 2000 万涨到 4000 万，÷400 之后还是很小。' },
+          { t: '把「性别 / 性向」这种硬条件去掉', d: '它看起来最绝对', s: 0, tag: 'bad',
+            why: '看着最硬，其实<b>最便宜</b>：放开它只涨 <b>2.0 倍</b>。清单里最该动的永远是最贵的那一条，不是最显眼的那一条。' },
+        ],
+        math: '合格人数 = 总人口 × p₁ × p₂ × … × pₙ，所以条件数一多就<b>指数衰减</b>。真正的问题从来不是「我的要求高不高」，而是「哪一条最贵」。',
+        nums: [
+          { k: '七条条件筛完', v: '90 人', n: '2000 万 → 4.5e-6' },
+          { k: '放开「有眼缘」/「聊得来」', v: '各 ×20.0', n: '最贵的两条' },
+          { k: '七条减到五条', v: '0.45% → 83.50%', n: '合格率 4.5e-6 → 1.8e-3' },
+          { k: '放开「性别/性向」', v: '只 ×2.0', n: '最便宜的一条' },
+        ],
+        tip: '判据留一句：能提前说清、能减少误判的（不接受异地）留着；要见到人才能判断、又要求前百分之几的（有眼缘）挪出筛选阶段。',
+      },
+      {
+        id: 2, act: 1, emoji: '⏳', key: 'stop', model: '模型 1 最优停止',
+        title: '怎么找最爱：什么时候该定下来',
+        scene: '你打算这一年认真接触 <b>12 个人</b>。现在见了 5 个，第 3 个是目前最好的。你在想「再看看说不定有更好的」。',
+        q: '你的判断是？',
+        opts: [
+          { t: '继续见，遇到第一个超过第 3 个的就定下来', d: '拿第 3 个当尺子', s: 2, tag: 'best',
+            why: '对。N = 12 → 观察期是前 <b>4 人</b>（命中率 0.3955），第 5 个起进入决策期。第 3 个现在唯一的用处就是<b>当那把尺子</b>——不是当对象。' },
+          { t: '回头找第 3 个定下来', d: '他确实是到目前为止最好的', s: 0, tag: 'bad',
+            why: '观察期里的人按定义就不能承诺（那是模型的规则），而且「目前最好」这个判断本身还不稳定——你才见了 5 个。' },
+          { t: '把 12 个都见完，再回头挑最好的', d: '多比较总不会错', s: 0, tag: 'bad',
+            why: '两条都犯：一是不可回头，二是见过 90% 之后命中率只剩峰值的 <b>26%</b>。' },
+          { t: '把目标改成见满 20 个再开始考虑', d: '给自己更多样本', s: 1, tag: 'ok',
+            why: '这等于偷偷把 N 改大、把观察期无限延长。记住偏离是<b>不对称</b>的：往左偏是打折，往右偏是腰斩。' },
+        ],
+        math: 'P(k,n) = (k/n)·Σ(i=k+1→n) 1/(i−1)，n → ∞ 时最优比例收敛到 <b>1/e ≈ 0.368</b>，成功率也恰好是这个数。',
+        nums: [
+          { k: '你的 N = 12 → 观察期', v: '4 人', n: '命中率 0.3955，从第 5 个起决策' },
+          { k: '你现在的位置', v: '第 5 个', n: '已进入决策期' },
+          { k: '跳过前 30%', v: '仍有 98%', n: '往左偏是打折' },
+          { k: '跳过前 70% / 90%', v: '只剩 68% / 26%', n: '往右偏是腰斩' },
+        ],
+        tip: '拿不准就往<b>早</b>的一侧偏——这是这一关唯一需要背下来的东西。',
+      },
+      {
+        id: 3, act: 2, emoji: '✍️', key: 'idf', model: '模型 2 信息量',
+        title: '怎么写资料：把不筛人的字删掉',
+        scene: '你的资料里写着「幽默、善良、喜欢旅行、爱笑」。要改，哪个改法最有效？',
+        q: '你的判断是？',
+        opts: [
+          { t: '全删掉，换成「滑板、吉他、看展」', d: '换成具体事实', s: 2, tag: 'best',
+            why: '对。信息量从 <b>1.81 跳到 8.85</b>（4.9 倍）。判据只有一句：<b>这句话换个人也能写吗？</b>能 → 删。' },
+          { t: '保留「幽默」，再加两个具体爱好', d: '总得留点性格描述', s: 1, tag: 'ok',
+            why: '「幽默」有 <b>62%</b> 的人在写，信息量只有 0.478——留着它就是留着一句废话。' },
+          { t: '写得更长更详细，把性格说清楚', d: '越长越真诚', s: 0, tag: 'bad',
+            why: '具体 ≠ 长。Bruch & Newman：写给越受欢迎的人、消息越长，回报<b>越低</b>。要的是信息密度，不是字数。' },
+          { t: '换成「善良、孝顺、随和」', d: '换一批形容词', s: 0, tag: 'bad',
+            why: '这三个加起来正好 <b>1.810</b>——和原来一样不筛人。换一批形容词等于没换。' },
+        ],
+        math: 'IDF(w) = log(1 / p)，p = 写这个词的人的比例。写的人越多，这个词越<b>不筛人</b>。',
+        nums: [
+          { k: '滑板（3% 的人写）', v: '3.507', n: '信息量最高' },
+          { k: '幽默（62% 的人写）', v: '0.478', n: '最接近「人人都写」' },
+          { k: '两者差距', v: '7.34 倍', n: '3.507 ÷ 0.478' },
+          { k: '三个虚词 vs 三个具体词', v: '1.810 / 7.747', n: '4.3 倍' },
+        ],
+        tip: '优先级：具体经历 > 具体爱好 > 具体观点 > 形容词。',
+      },
+      {
+        id: 4, act: 2, emoji: '🎯', key: 'attraction', model: '模型 5 吸引力分布',
+        title: '该追多好的人：不是越高越好',
+        scene: '你的条件在这个市场里是中位（x = 0）。这周你还能发 <b>10 条消息</b>，怎么分配？',
+        q: '你的判断是？',
+        opts: [
+          { t: '全给比自己高约 1 个标准差的人', d: '稍微够一够', s: 2, tag: 'best',
+            why: '对。x = 0 时最优目标 y* = <b>1.09 个标准差</b>。不是越高越好，也不是找个差不多的——因为漏掉了一项：<b>出击成本</b>。' },
+          { t: '全给最受欢迎的那 1%，成了就赚翻', d: '反正发消息不要钱', s: 0, tag: 'bad',
+            why: 'Top 10% 收走了 <b>70.8%</b> 的消息，回应率却只有 <b>47.0%</b>。追 Top 1% 在任何自身水平下都不占优——这不是「敢不敢」的问题，是期望值算不过来。' },
+          { t: '全给跟我差不多或更低的人，求稳', d: '先保证有回应', s: 1, tag: 'ok',
+            why: '回应率确实高，但目标值 y 太低，y·p 的乘积不是最大。你要最大化的是<b>乘积</b>，不是其中一项。' },
+          { t: '一半给塔尖，一半给随便谁', d: '分散风险', s: 1, tag: 'ok',
+            why: '分散了成本，但也有一半打在回应率最低的档位上。最高回应率出现在 <b>25–50% 档（76.0%）</b>，不是塔尖也不是底部。' },
+        ],
+        math: 'p(x,y) = 1/(1+exp(−β(x−y+c)))，目标函数 f(y) = y·p(x,y) − COST。<b>只要「回应率随差距下降」+「每次出击有成本」成立，「追 Top 1% 不占优」就是结构性结论</b>，不依赖具体参数。',
+        nums: [
+          { k: '最优目标差距（x = 0）', v: '1.09 σ', n: '不是越高越好' },
+          { k: '人群平均最优差距', v: '1.448 σ', n: '大家其实都在往上够' },
+          { k: 'Top 10% 收走的消息', v: '70.8%', n: '回应率却只有 47.0%' },
+          { k: '最高回应率出现在', v: '25–50% 档 76.0%', n: '不是塔尖' },
+        ],
+        tip: '提升自己（x）永远优先于抬高目标（y）：提 x 会同时抬高你对<b>所有</b>目标的回应率，抬 y 只会把回应率压下去。',
+      },
+      {
+        id: 5, act: 2, emoji: '💍', key: 'matching', model: '模型 8 稳定匹配',
+        title: '要不要主动：数学上严格占优',
+        scene: '你很喜欢一个人，但怕被拒。',
+        q: '你的判断是？',
+        opts: [
+          { t: '主动提一次，拿到明确答复就结束', d: '提一次，不纠缠', s: 2, tag: 'best',
+            why: '对。主动方平均落在第 <b>5.7 志愿</b>，被动方落在第 <b>35.6 志愿</b>。两个匹配<b>同样稳定</b>，差别只来自谁在提出。代价只有一个：你承受得起被拒绝。' },
+          { t: '多展示自己，让对方主动来找我', d: '这样不会被拒', s: 0, tag: 'bad',
+            why: '你主动退到被动方。主动方最差的人落在第 30.6 志愿，被动方最差的人平均要落到第 <b>172.2 志愿</b>——这才是最贵的一种「安全」。' },
+          { t: '不表白，但可以反复暗示', d: '总该看得懂吧', s: 0, tag: 'bad',
+            why: '延迟接受算法里没有「暗示」这个动作——没有提出，就等于没有参与匹配。' },
+          { t: '观望三个月，等更确定的信号', d: '时机成熟再说', s: 0, tag: 'bad',
+            why: '市场是动态的：你等的时候，对方会被别人先锁定。这一条在分支向导里正是把观察期往前挪的原因。' },
+        ],
+        math: 'Gale & Shapley (1962)：稳定匹配<b>一定存在</b>，而主动提出的一方拿到的是「所有稳定匹配里对自己最好的那一个」。这是全书唯一的定理级结论。',
+        nums: [
+          { k: '主动方平均落在', v: '第 5.7 志愿', n: '' },
+          { k: '被动方平均落在', v: '第 35.6 志愿', n: '差 30 位' },
+          { k: '主动方最差的人', v: '第 30.6 志愿', n: '' },
+          { k: '被动方最差的人', v: '第 172.2 志愿', n: '最贵的一种「安全」' },
+        ],
+        tip: '区分「提出」和「纠缠」：提一次、拿到明确答复，这个动作就完成了。',
+      },
+      {
+        id: 6, act: 3, emoji: '🎁', key: 'idf', model: '模型 2（迁移）',
+        title: '怎么送礼：价格不是信息量',
+        scene: '认识两个月，对方生日，预算 <b>500 元</b>。',
+        q: '你的判断是？',
+        opts: [
+          { t: '送他三个月前随口提过、现在已经买不到的那本书', d: '可能只要几十块', s: 2, tag: 'best',
+            why: '对。它的 p 极低（几乎没人会送这个），所以<b>信息量最高</b>。它证明的不是「你花了钱」，而是「你在听」——后者才是筛人的那一项。' },
+          { t: '买大家都说好的爆款', d: '大牌口红 / 香水，不会错', s: 1, tag: 'ok',
+            why: '安全，但 p 很高——人人都能送，所以<b>不筛人</b>，也就不能证明你了解他。安全款的上限就是「不出错」。' },
+          { t: '预算顶格，买最贵的', d: '诚意要到位', s: 0, tag: 'bad',
+            why: '价格不是信息量：钱是人人都能付出的，<b>p 不会因为贵而变小</b>。花 500 元买一个人人都会买的爆款，信息量仍然是 0.92。' },
+          { t: '一大束花 + 一段很长的告白', d: '够用心了吧', s: 0, tag: 'bad',
+            why: '长 ≠ 具体。这一段和第 3 关是同一个错误：把「信息密度」当成了「字数」。' },
+        ],
+        math: 'IDF = log(1/p)：<b>p = 有多少人也送得起、也送得出这个东西</b>。p 越小，信息量越大。跟价格无关，跟「只有你知道」有关。',
+        nums: [
+          { k: '爆款（p ≈ 40%）', v: '0.92', n: '信息量' },
+          { k: '只有你知道的那本（p ≈ 2%）', v: '3.91', n: '4.3 倍' },
+          { k: '参照：滑板 vs 幽默', v: '3.507 / 0.478', n: '7.34 倍' },
+          { k: '价格跟 p 的关系', v: '无', n: '贵 ≠ 稀有' },
+        ],
+        warn: '🚩 诚实标注：这一关是把模型 2（信息量）<b>类比迁移</b>到送礼上——它不是《爱情数学》里的内容，也没有任何实证支持。方向来自「筛人」这个机制，不是来自送礼研究。信不信由你，但别当成结论。',
+      },
+      {
+        id: 7, act: 3, emoji: '🧊', key: 'chicken', model: '模型 4 Chicken 博弈',
+        title: '怎么道歉：改机制，不是改「谁更愿意」',
+        scene: '冷战第二天了。你觉得这次自己大概有六成的问题。',
+        q: '你的判断是？',
+        opts: [
+          { t: '先各自冷静 20 分钟，然后提一句：这次我先开口，下次轮到你', d: '生理 + 机制', s: 2, tag: 'best',
+            why: '对，而且顺序也对：先处理生理（心跳不回落人是<b>没有能力</b>讲道理的），再把「谁让步」这件事<b>从博弈里拿出来</b>。规则必须在不吵架的时候定，这次只是执行它。' },
+          { t: '我现在就道歉，并保证以后都由我先', d: '我错得多，我应该', s: 1, tag: 'ok',
+            why: '把 p 从 0.50 拉到 0.80，单期收益也才 +0.842，期数只从 1.33 降到 1.04——因为随机化总会撞上「两个都不道歉」。而且它把「谁让步」变成默认分配，是一笔隐性负债。' },
+          { t: '等对方开口，谁先开口谁就输了', d: '这次我没错那么多', s: 0, tag: 'bad',
+            why: '两个纯策略纳什均衡都落在「一个道歉、一个不道歉」上——<b>均衡定了，但没定是谁</b>。这句话本身就是冷战的定义。' },
+          { t: '先各自冷静 20 分钟，之后再说', d: '先别在气头上谈', s: 1, tag: 'ok',
+            why: '必要的生理前置（Gottman 的 20 分钟实验直接支持），但它没解决「谁先开口」——冷静完，僵局还在那儿。' },
+        ],
+        math: '期望冷战期数 = 1 / (1 − (1−p₁)(1−p₂))。混合纳什 p = 0.50 → <b>1.33 期</b>；调到 0.80 也只到 1.04。<b>相关均衡（轮流）= 0 期</b>，收益 +1.005/期。',
+        nums: [
+          { k: '混合纳什 p = 0.50', v: '1.33 期', n: '收益 ≈ −0.001' },
+          { k: '把 p 拉到 0.80', v: '1.04 期', n: '收益 +0.842，天花板' },
+          { k: '轮流先退一步（相关均衡）', v: '0 期', n: '冷战清零' },
+          { k: '机制收益', v: '+1.005 / 期', n: '严格结论，与参数无关' },
+        ],
+        tip: '三个可以直接抄的外部规则：「这周轮到谁先开口」「谁先冷静下来谁先说话」「按单双日」。规则本身不重要，<b>外部 + 事先</b>才重要。',
+      },
+      {
+        id: 8, act: 4, emoji: '🌱', key: 'hazard', model: '模型 3 相似 / 互补',
+        title: '怎么让关系长久：先补及格线',
+        scene: '你们很相爱，但你心里有 <b>3 条「希望对方改」</b>。',
+        q: '你的判断是？',
+        opts: [
+          { t: '逐条判断：能接受就把它从问题清单里划掉，不能接受就当场筛掉', d: '不允许它悬在中间', s: 2, tag: 'best',
+            why: '对。凡是「我希望他改」的 → 归<b>相似</b>类、当场决定能不能接受；凡是「我欣赏但不必参与」的 → 才归<b>互补</b>类。把前者当成后者，是这套模型里最常见的误用。' },
+          { t: '相爱就能磨合，给时间', d: '感情基础在', s: 0, tag: 'bad',
+            why: 'Gottman：<b>69% 的关系问题是永久性的、解决不掉的</b>。「以后会好的」在统计上是低概率事件。' },
+          { t: '多培养共同爱好，提升互补度', d: '一起做点新的事', s: 1, tag: 'ok',
+            why: '互补度拉满只延 <b>1.72 倍</b>，相似度拉满延 <b>7.2 倍</b>。方向对，但优先级排错了——先补及格线，再谈加分项。' },
+          { t: '多沟通，把话说开', d: '沟通能解决一切', s: 0, tag: 'bad',
+            why: '不可证伪：没有任何观察能反驳「要多沟通」。它没有给出机制，所以它不是一条判断，只是一句安慰。' },
+        ],
+        math: 'λ(s,c) = λ₀·exp(−a·s − b·c)，E[T] = 1/λ。示意参数 a = 2.2、b = 0.6 下：<b>相似度是及格线，互补度是加分项</b>。',
+        nums: [
+          { k: '相似度 s：0 → 0.9', v: '2.0 → 14.5 年', n: '7.2 倍' },
+          { k: '互补度 c：0 → 0.9（s = 0.6）', v: '7.5 → 12.8 年', n: '只 1.72 倍' },
+          { k: 's = c = 0.9', v: '24.9 年', n: '示意参数下的上界' },
+          { k: '把权重倒过来（a:b = 0.6:2.2）', v: '结论翻转', n: '这是参数性的，不是定理' },
+        ],
+        warn: '🚩 这个排序<b>不是定理</b>，是 a = 2.2 > b = 0.6 这个假设的直接产物。把权重倒过来，结论立刻反转。正确的说法是：「如果你认为相似的权重是互补的 3.67 倍，那么……」。',
+      },
+    ];
+
+    /* ══ 定位 ══ */
+    var POS = [
+      { id: 'st', q: '你现在的状态是？', opts: [
+        { t: '单身，正在找', v: 'single' },
+        { t: '有暧昧 / 刚认识的人', v: 'talking' },
+        { t: '稳定交往中', v: 'together' },
+        { t: '长期关系 / 已婚', v: 'long' },
+        { t: '刚结束一段', v: 'ex' },
+      ]},
+      { id: 'gl', q: '你最想解决的是？', opts: [
+        { t: '找到对的人', v: 'find' },
+        { t: '让他 / 她回应我', v: 'respond' },
+        { t: '别再冷战了', v: 'cold' },
+        { t: '这段要不要继续', v: 'continue' },
+        { t: '让关系更好', v: 'better' },
+      ]},
+    ];
+    var ACT_OF = { single: 1, ex: 1, talking: 2, together: 3, long: 4 };
+    var GOAL_LV = { find: [1, 2], respond: [3, 4, 5], cold: [7], continue: [8], better: [6, 8] };
+    var ACT_FIRST = { 1: 1, 2: 3, 3: 6, 4: 7 };
+    var GOAL_NAME = { find: '找到对的人', respond: '让他 / 她回应我', cold: '别再冷战了', continue: '这段要不要继续', better: '让关系更好' };
+
+    var st = { pos: {}, act: null, goal: null, need: [], ans: {}, unlocked: 1 };
+    try {
+      var raw = localStorage.getItem(LS);
+      if (raw) { var s0 = JSON.parse(raw); if (s0 && s0.ans) { st = s0; st.need = st.need || []; } }
+    } catch (e) {}
+
+    function save() { try { localStorage.setItem(LS, JSON.stringify(st)); } catch (e) {} }
+    function score() { var n = 0; Object.keys(st.ans).forEach(function (k) { n += st.ans[k].s; }); return n; }
+    function done() { return Object.keys(st.ans).length; }
+
+    var V = { pos: document.getElementById('v-pos'), map: document.getElementById('v-map'), level: document.getElementById('v-level'), result: document.getElementById('v-result') };
+    function view(name) {
+      Object.keys(V).forEach(function (k) { V[k].hidden = k !== name; });
+      if (window.scrollTo) window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ── 定位渲染 ── */
+    function renderPos() {
+      renderPosQ(0);
+      document.getElementById('pos-q2').hidden = !st.pos.st;
+      if (st.pos.st) renderPosQ(1);
+      if (st.pos.st && st.pos.gl) renderPosOut();
+      else document.getElementById('pos-out').hidden = true;
+    }
+    function renderPosQ(i) {
+      var p = POS[i], box = document.getElementById('pos-q' + (i + 1));
+      var h = '<h3 class="pos-q-t">' + p.q + '</h3><div class="wz-opts">';
+      p.opts.forEach(function (o, j) {
+        var on = st.pos[p.id] === o.v;
+        h += '<button class="wz-opt' + (on ? ' on' : '') + '" type="button" data-i="' + j + '"><span class="wz-opt-t">' + o.t + '</span></button>';
+      });
+      h += '</div>';
+      box.innerHTML = h;
+      box.querySelectorAll('.wz-opt').forEach(function (b) {
+        b.addEventListener('click', function () {
+          st.pos[p.id] = p.opts[parseInt(b.getAttribute('data-i'), 10)].v;
+          save(); renderPos();
+        });
+      });
+    }
+    function renderPosOut() {
+      st.act = ACT_OF[st.pos.st] || 1;
+      st.goal = st.pos.gl;
+      var main = LEVELS.filter(function (l) { return l.act === st.act; }).map(function (l) { return l.id; });
+      st.need = main.concat(GOAL_LV[st.goal] || []).filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+      st.unlocked = Math.max(st.unlocked, ACT_FIRST[st.act]);
+      save();
+      var a = ACTS[st.act - 1];
+      var h = '<div class="pos-card">' +
+        '<span class="qz-kick">你现在的幕</span>' +
+        '<h3>第 ' + st.act + ' 幕 · <b>' + a.name + '</b>　<span class="pos-sub">' + a.sub + '</span></h3>' +
+        '<p class="pos-desc">' + a.desc + '</p>' +
+        '<p class="pos-need">必修关：<b>' + st.need.map(function (n) { return '第 ' + n + ' 关'; }).join(' · ') + '</b>　（其余是支线，可以打也可以跳）</p>' +
+        '<button class="qz-btn" id="pos-go" type="button">进入关卡地图 →</button>' +
+        '</div>';
+      var box = document.getElementById('pos-out');
+      box.innerHTML = h; box.hidden = false;
+      document.getElementById('pos-go').addEventListener('click', function () { renderMap(); view('map'); });
+      if (box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    /* ── 地图 ── */
+    function renderMap() {
+      var h = '';
+      ACTS.forEach(function (a) {
+        var ls = LEVELS.filter(function (l) { return l.act === a.id; });
+        var isCur = st.act === a.id;
+        h += '<div class="act' + (isCur ? ' cur' : '') + '">' +
+          '<div class="act-h"><span class="act-no">第 ' + a.id + ' 幕</span><span class="act-nm">' + a.name + '</span>' +
+          '<span class="act-sub">' + a.sub + '</span>' + (isCur ? '<span class="act-badge">你在这里</span>' : '') + '</div><div class="act-ls">';
+        ls.forEach(function (l) {
+          var got = st.ans[l.id], locked = l.id > st.unlocked;
+          var stars = got ? (got.s === 2 ? '★★' : got.s === 1 ? '★' : '✗') : '';
+          var need = st.need.indexOf(l.id) >= 0;
+          h += '<button class="lv-card' + (locked ? ' locked' : '') + (got ? ' done' : '') + (need && !got ? ' need' : '') + '" type="button" data-lv="' + l.id + '"' + (locked ? ' disabled' : '') + '>' +
+            '<span class="lv-no">' + (locked ? '🔒' : l.id) + '</span>' +
+            '<span class="lv-em">' + l.emoji + '</span>' +
+            '<span class="lv-t">' + l.title + '</span>' +
+            '<span class="lv-m">' + l.model + '</span>' +
+            '<span class="lv-st">' + stars + '</span>' +
+            (need ? '<span class="lv-need">必修</span>' : '') +
+            '</button>';
+        });
+        h += '</div></div>';
+      });
+      document.getElementById('map-acts').innerHTML = h;
+      document.getElementById('map-score').textContent = score() + ' / 16　（已通 ' + done() + '/8 关）';
+      document.getElementById('map-h').textContent = st.act ? '八关 · 四幕　你在第 ' + st.act + ' 幕' : '八关 · 四幕';
+      document.getElementById('map-tip').textContent = st.act
+        ? '高亮的是你这一幕的必修关。通关一关即解锁下一关；也可以随时看结算。'
+        : '通关一关即解锁下一关。想让系统推荐必修关，可以回第一步做定位。';
+      document.getElementById('map-acts').querySelectorAll('[data-lv]').forEach(function (b) {
+        b.addEventListener('click', function () { openLevel(parseInt(b.getAttribute('data-lv'), 10)); });
+      });
+    }
+
+    /* ── 单关 ── */
+    var curLv = null;
+    function openLevel(id) {
+      curLv = LEVELS[id - 1];
+      var l = curLv, got = st.ans[l.id];
+      var a = ACTS[l.act - 1];
+      var h = '<div class="lv-head">' +
+        '<span class="qz-kick">第 ' + a.id + ' 幕 · ' + a.name + '　|　第 ' + l.id + ' 关 / 8</span>' +
+        '<h2>' + l.emoji + ' ' + l.title + '</h2>' +
+        '<span class="lv-model">' + l.model + '</span></div>' +
+        '<div class="lv-scene"><span class="sc-label">情境</span><p>' + l.scene + '</p></div>' +
+        '<h3 class="lv-q">' + l.q + '</h3><div class="wz-opts" id="lv-opts">';
+      l.opts.forEach(function (o, i) {
+        var picked = got && got.i === i;
+        h += '<button class="wz-opt' + (picked ? ' on' : '') + (got ? ' disabled' : '') + '" type="button" data-i="' + i + '"' + (got ? ' disabled' : '') + '>' +
+          '<span class="wz-opt-t">' + o.t + '</span><span class="wz-opt-d">' + o.d + '</span></button>';
+      });
+      h += '</div><div id="lv-fb"></div>';
+      document.getElementById('lv-body').innerHTML = h;
+      document.getElementById('lv-nav').hidden = !got;
+      view('level');
+      if (!got) {
+        document.getElementById('lv-opts').querySelectorAll('.wz-opt').forEach(function (b) {
+          b.addEventListener('click', function () { answer(parseInt(b.getAttribute('data-i'), 10)); });
+        });
+      } else {
+        paintFb(got.i);
+      }
+    }
+    function answer(i) {
+      var l = curLv, o = l.opts[i];
+      st.ans[l.id] = { i: i, s: o.s };
+      st.unlocked = Math.max(st.unlocked, l.id + 1);
+      save();
+      paintFb(i);
+      document.getElementById('lv-nav').hidden = false;
+    }
+    function paintFb(i) {
+      var l = curLv, o = l.opts[i];
+      var tagCls = o.tag === 'best' ? 'ok' : o.tag === 'ok' ? 'warn' : 'bad';
+      var tagTxt = o.tag === 'best' ? '✅ 数学上更优' : o.tag === 'ok' ? '⚠️ 方向对，效率低' : '❌ 结构性错误';
+      var h = '<div class="fb t-' + tagCls + '">' +
+        '<span class="fb-tag">' + tagTxt + '　' + (o.s === 2 ? '+2' : o.s === 1 ? '+1' : '+0') + '</span>' +
+        '<p class="fb-why">' + o.why + '</p></div>' +
+        '<div class="fb-math"><span class="sc-label">这一关的数学</span><p>' + l.math + '</p></div>' +
+        '<div class="wz-kvs">' + l.nums.map(function (x) {
+          return '<div class="wz-kv"><span>' + x.k + '</span><b>' + x.v + '</b>' + (x.n ? '<em>' + x.n + '</em>' : '' ) + '</div>';
+        }).join('') + '</div>';
+      if (l.tip) h += '<div class="note-card">💡 ' + l.tip + '</div>';
+      if (l.warn) h += '<div class="note-card warn">' + l.warn + '</div>';
+      h += '<div class="fb-others"><h4>四个选项的完整对照</h4><ul class="wz-list">' +
+        l.opts.map(function (x, j) {
+          if (j === i) return '';
+          return '<li><b>' + (x.tag === 'best' ? '✅' : x.tag === 'ok' ? '⚠️' : '❌') + ' ' + x.t + '</b>　' + x.why + '</li>';
+        }).join('') + '</ul></div>' +
+        '<p class="fb-link"><a href="' + BASE + 'love-math/#wizard" >🧭 想让这套模型按你自己的条件算一遍 → 决策向导</a></p>';
+      document.getElementById('lv-fb').innerHTML = h;
+      var fb = document.getElementById('lv-fb');
+      if (fb.scrollIntoView) fb.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    /* ── 结算 ── */
+    function renderResult() {
+      var s = score(), n = done();
+      var rank = s >= 15 ? { g: 'S', t: '你把这套模型用对了', d: '八关里你几乎没有踩坑。剩下的不是认知问题，是执行问题——回到地图，把必修关再看一遍就行。' }
+        : s >= 12 ? { g: 'A', t: '判断基本在线', d: '大的方向你都选对了，错的多半是「效率」而不是「方向」。下面的错关值得回头看一眼解释。' }
+        : s >= 8 ? { g: 'B', t: '方向对，但有几处是反的', d: '你错的那几关有个共同点：都在用「感觉上更对的办法」替代「结构上更优的办法」。这正是这些模型存在的意义。' }
+        : s >= 4 ? { g: 'C', t: '直觉在拖后腿', d: '这八关里最常见的错误是同一个：把「更努力 / 更真诚 / 更贵」当成答案，而模型说的是「改结构 / 改机制 / 改信息量」。' }
+        : { g: 'D', t: '建议从必修关重打', d: '别灰心——这些判断之所以是「关」，正是因为直觉给出的答案大多不是最优解。先打你那一幕的必修关。' };
+      var h = '<div class="res-hero"><span class="qz-kick">结算</span>' +
+        '<div class="res-g">' + rank.g + '</div>' +
+        '<h3>' + rank.t + '</h3>' +
+        '<p class="res-score">' + s + ' / 16　·　通关 ' + n + ' / 8</p>' +
+        '<p class="res-desc">' + rank.d + '</p></div>';
+      h += '<div class="res-list"><h4>逐关回顾</h4>';
+      LEVELS.forEach(function (l) {
+        var g = st.ans[l.id];
+        if (!g) { h += '<div class="res-row skip"><span class="rr-no">第 ' + l.id + ' 关</span><span class="rr-t">' + l.emoji + ' ' + l.title + '</span><span class="rr-s">未通关</span></div>'; return; }
+        var o = l.opts[g.i];
+        h += '<div class="res-row s-' + g.s + '"><span class="rr-no">第 ' + l.id + ' 关</span>' +
+          '<span class="rr-t">' + l.emoji + ' ' + l.title + '<em>你选：' + o.t + '</em></span>' +
+          '<span class="rr-s">' + (g.s === 2 ? '★★' : g.s === 1 ? '★' : '✗') + '</span></div>';
+      });
+      h += '</div>';
+      var weak = LEVELS.filter(function (l) { return st.ans[l.id] && st.ans[l.id].s < 2; });
+      if (weak.length) {
+        h += '<div class="note-card warn">🔁 <b>建议重看的关：</b>' + weak.map(function (l) { return '第 ' + l.id + ' 关「' + l.title.split('：')[0] + '」'; }).join(' · ') +
+          '　——这几关的共同点是：直觉答案和最优答案不一致。</div>';
+      }
+      document.getElementById('res-body').innerHTML = h;
+      view('result');
+    }
+
+    /* ── 绑定 ── */
+    document.getElementById('pos-skip').addEventListener('click', function () { renderMap(); view('map'); });
+    document.getElementById('lv-back').addEventListener('click', function () { renderMap(); view('map'); });
+    document.getElementById('lv-next').addEventListener('click', function () {
+      var n = curLv ? curLv.id + 1 : 1;
+      if (n > 8) { renderResult(); return; }
+      openLevel(n);
+    });
+    document.getElementById('lv-retry').addEventListener('click', function () {
+      delete st.ans[curLv.id]; save(); openLevel(curLv.id);
+    });
+    document.getElementById('map-finish').addEventListener('click', renderResult);
+    document.getElementById('map-repos').addEventListener('click', function () { st.pos = {}; st.act = null; st.need = []; save(); renderPos(); view('pos'); });
+    document.getElementById('res-again').addEventListener('click', function () { st.ans = {}; st.unlocked = Math.max(1, st.act ? ACT_FIRST[st.act] : 1); save(); renderMap(); view('map'); });
+    document.getElementById('res-map').addEventListener('click', function () { renderMap(); view('map'); });
+
+    /* ── 深链 ?lv=N ── */
+    var m = /[?&]lv=(\d+)/.exec(location.search);
+    if (m) {
+      var n = Math.min(8, Math.max(1, parseInt(m[1], 10)));
+      st.unlocked = Math.max(st.unlocked, n); save();
+      renderMap(); openLevel(n);
+    } else {
+      renderPos();
+    }
+  })();
+</script>
+
+<style is:global>
+  :root { --bg-url: url('/love-blog/24solar-bg.png'); }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: var(--bg-url); background-size: cover; background-position: center top;
+    background-repeat: no-repeat; opacity: 0.13; z-index: -1; pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  :root[data-theme="dark"] body::before { opacity: 0.08; }
+</style>
+
+<style>
+  .qz { max-width: 900px; margin: 0 auto; padding: 36px 20px 64px; }
+  .kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 8px; }
+  .qz h1 { font-size: 28px; line-height: 1.4; margin: 0 0 8px; letter-spacing: .2px; }
+  .meta { color: var(--muted); font-size: 13.5px; margin: 0 0 22px; line-height: 1.75; }
+  .meta b { color: var(--accent); }
+  .qz a { color: var(--accent); }
+
+  .qz-box { border: 1px solid var(--border); border-radius: 14px; padding: 22px; background: var(--bg); margin-bottom: 18px; }
+  .qz-box-head { margin-bottom: 16px; }
+  .qz-box-head h2, .map-head h2 { font-size: 20px; margin: 4px 0 6px; }
+  .qz-kick { display: inline-block; font-size: 12px; letter-spacing: 1.5px; color: var(--accent); font-weight: 700; margin-bottom: 4px; }
+  .qz-sub, .qz-hint { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.75; }
+  .qz-hint { margin-bottom: 14px; }
+
+  .pos-q { margin-bottom: 6px; }
+  .pos-q-t { font-size: 17px; margin: 14px 0 10px; }
+  .wz-opts { display: flex; flex-direction: column; gap: 9px; }
+  .wz-opt { display: block; width: 100%; text-align: left; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--fg); cursor: pointer; transition: .15s; }
+  .wz-opt:hover:not(.disabled) { border-color: var(--accent); background: rgba(224,69,123,0.05); }
+  .wz-opt.on { border-color: var(--accent); background: rgba(224,69,123,0.09); font-weight: 600; }
+  .wz-opt.disabled { opacity: .55; cursor: default; }
+  .wz-opt-t { display: block; font-size: 15px; font-weight: 600; line-height: 1.5; }
+  .wz-opt-d { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.6; }
+  .pos-skip { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .pos-card { background: var(--code-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 12px 12px 0; padding: 16px 18px; margin-top: 16px; }
+  .pos-card h3 { margin: 4px 0 8px; font-size: 19px; }
+  .pos-card h3 b { color: var(--accent); }
+  .pos-sub { font-size: 14px; color: var(--muted); font-weight: 400; }
+  .pos-desc { margin: 0 0 8px; font-size: 14.5px; line-height: 1.8; }
+  .pos-need { margin: 0 0 14px; font-size: 14px; }
+  .pos-need b { color: var(--accent); }
+
+  .map-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .map-score { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .qz-btn { padding: 8px 16px; border: 1px solid var(--accent); border-radius: 999px; background: var(--accent); color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .qz-btn.ghost { background: transparent; color: var(--muted); border-color: var(--border); }
+  .qz-back { background: none; border: none; color: var(--muted); font-size: 13.5px; cursor: pointer; padding: 0; margin-bottom: 14px; }
+  .qz-back:hover { color: var(--accent); }
+
+  .act { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; background: var(--bg); }
+  .act.cur { border-color: var(--accent); background: rgba(224,69,123,0.05); }
+  .act-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .act-no { color: var(--accent); font-weight: 800; font-size: 13px; }
+  .act-nm { font-weight: 700; font-size: 17px; }
+  .act-sub { color: var(--muted); font-size: 13px; }
+  .act-badge { margin-left: auto; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+  .act-ls { display: grid; grid-template-columns: repeat(auto-fit, minmax(238px, 1fr)); gap: 9px; }
+  .lv-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--fg); cursor: pointer; transition: .15s; }
+  .lv-card:hover:not(.locked) { border-color: var(--accent); transform: translateY(-1px); }
+  .lv-card.locked { opacity: .45; cursor: not-allowed; }
+  .lv-card.done { border-color: #16a34a; }
+  .lv-card.need:not(.done) { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(224,69,123,0.15); }
+  .lv-no { position: absolute; top: 10px; right: 12px; font-size: 12px; color: var(--muted); font-weight: 700; }
+  .lv-em { font-size: 20px; }
+  .lv-t { font-size: 14.5px; font-weight: 600; line-height: 1.45; }
+  .lv-m { font-size: 12px; color: var(--muted); }
+  .lv-st { font-size: 13px; color: var(--accent); letter-spacing: 2px; }
+  .lv-need { position: absolute; bottom: 10px; right: 12px; font-size: 11px; background: var(--accent); color: #fff; padding: 1px 8px; border-radius: 999px; }
+
+  .lv-head { margin-bottom: 14px; }
+  .lv-head h2 { font-size: 21px; margin: 4px 0 6px; line-height: 1.45; }
+  .lv-model { display: inline-block; font-size: 12.5px; color: var(--accent); background: rgba(224,69,123,0.08); border-radius: 999px; padding: 3px 12px; }
+  .lv-scene { background: var(--code-bg); border: 1px solid var(--border); border-left: 4px solid #6366f1; border-radius: 0 10px 10px 0; padding: 14px 16px; margin-bottom: 18px; }
+  .sc-label { display: block; font-size: 11.5px; letter-spacing: 1px; color: var(--muted); font-weight: 700; margin-bottom: 5px; }
+  .lv-scene p { margin: 0; font-size: 15px; line-height: 1.85; }
+  .lv-scene b, .lv-q b { color: var(--accent); }
+  .lv-q { font-size: 17px; margin: 0 0 12px; }
+  .lv-nav { display: flex; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+  .fb { border-radius: 10px; padding: 14px 16px; margin: 16px 0 14px; border-left: 5px solid; }
+  .fb.t-ok { border-left-color: #16a34a; background: rgba(22,163,74,0.08); }
+  .fb.t-warn { border-left-color: #d97706; background: rgba(217,119,6,0.08); }
+  .fb.t-bad { border-left-color: #dc2626; background: rgba(220,38,38,0.08); }
+  .fb-tag { display: inline-block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .fb-why { margin: 0; font-size: 14.5px; line-height: 1.85; }
+  .fb-why b, .fb-math b { color: var(--accent); }
+  .fb-math { background: var(--code-bg); border: 1px dashed var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+  .fb-math p { margin: 0; font-size: 14px; line-height: 1.8; }
+  .wz-kvs { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 9px; margin-bottom: 14px; }
+  .wz-kv { background: var(--code-bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; }
+  .wz-kv span { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+  .wz-kv b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; margin: 2px 0; color: var(--accent); }
+  .wz-kv em { display: block; font-size: 11.5px; font-style: normal; color: var(--muted); line-height: 1.5; }
+  .note-card { background: var(--code-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; font-size: 14px; line-height: 1.8; }
+  .note-card.warn { border-left-color: #d97706; background: rgba(217,119,6,0.07); }
+  .fb-others { margin-top: 18px; }
+  .fb-others h4 { font-size: 15px; margin: 0 0 8px; padding-left: 10px; border-left: 4px solid var(--border); }
+  .wz-list { padding-left: 20px; margin: 0; }
+  .wz-list li { margin: 9px 0; font-size: 14px; line-height: 1.8; }
+  .wz-list b { color: var(--accent); }
+  .fb-link { margin: 16px 0 0; font-size: 14px; }
+  .fb-link a { color: var(--accent); }
+
+  .res-hero { text-align: center; padding: 18px 0 8px; }
+  .res-g { font-size: 64px; font-weight: 900; color: var(--accent); line-height: 1; margin: 6px 0 10px; }
+  .res-hero h3 { font-size: 21px; margin: 0 0 6px; }
+  .res-score { font-size: 15px; font-weight: 700; color: var(--accent); margin: 0 0 10px; font-variant-numeric: tabular-nums; }
+  .res-desc { font-size: 14.5px; line-height: 1.85; color: var(--muted); margin: 0 auto; max-width: 640px; }
+  .res-list { margin-top: 22px; }
+  .res-list h4 { font-size: 15.5px; margin: 0 0 10px; padding-left: 10px; border-left: 4px solid var(--accent); }
+  .res-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; margin-bottom: 7px; background: var(--bg); }
+  .res-row.s-2 { border-color: #16a34a; }
+  .res-row.s-1 { border-color: #d97706; }
+  .res-row.s-0 { border-color: #dc2626; }
+  .res-row.skip { opacity: .5; }
+  .rr-no { font-size: 12.5px; color: var(--muted); font-weight: 700; flex: none; }
+  .rr-t { flex: 1; font-size: 14.5px; }
+  .rr-t em { display: block; font-style: normal; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .rr-s { font-size: 13px; color: var(--accent); letter-spacing: 2px; flex: none; }
+
+  .engage { margin-top: 42px; padding-top: 26px; border-top: 1px solid var(--border); text-align: center; }
+  .engage-tip { color: var(--fg); font-size: 15px; margin: 0 0 16px; }
+  .reward { display: flex; gap: 24px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .reward-col { text-align: center; }
+  .reward-qr { width: 120px; height: 120px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--code-bg); overflow: hidden; }
+  .reward-qr img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .reward-col p { margin: 8px 0 0; font-size: 14px; }
+  .engage-links { display: flex; flex-direction: column; gap: 8px; align-items: center; margin: 26px 0 0; }
+  .lnk { color: var(--accent); font-size: 14.5px; }
+  .foot-note { color: var(--muted); font-size: 12.5px; margin-top: 24px; text-align: center; line-height: 1.7; }
+
+  @media (max-width: 720px) {
+    .qz h1 { font-size: 23px; }
+    .act-ls { grid-template-columns: 1fr; }
+    .map-head { align-items: flex-start; }
+    .res-g { font-size: 52px; }
+  }
+</style>
