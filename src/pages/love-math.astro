@@ -287,7 +287,7 @@ const paramsNote = '模型 3 的 a、b 与模型 5 的 β、c、COST、模型 9 
     <button class="tab" data-tab="valid" type="button">🔬 是否有效</button>
     <button class="tab" data-tab="source" type="button">📐 数据与复现</button>
     <a class="tab quiz-cta" href={`${base}love-quest/`}>🎮 闯关</a>
-    <a class="tab quiz-cta" href={`${base}love-personality/`}>📐 三张尺</a>
+    <a class="tab quiz-cta" href={`${base}love-personality/`}>🧬 四型人格</a>
   </nav>
 
   <!-- ── TAB 1：十二个模型 ── -->
@@ -592,6 +592,8 @@ python3 build_report.py                 # 重新生成本页数据</code></pre>
     var IDF_VAGUE = 1.810;                 // 幽默 + 爱笑 + 随和
     var IDF_RICH = 7.747;                  // 吉他 + 看展 + 爬山
     var INV_E = 0.367879;
+    var BASE_HREF = (document.querySelector('.brand') || {}).getAttribute
+      ? document.querySelector('.brand').getAttribute('href') : '/love-blog/';
 
     var WORDS = [
       { w: '滑板', p: 0.03 }, { w: '吉他', p: 0.06 }, { w: '看展', p: 0.08 },
@@ -1138,6 +1140,7 @@ python3 build_report.py                 # 重新生成本页数据</code></pre>
       return '<div class="wz-hero t-' + tone + '"><span class="wz-kick">评估结果 · 该不该定下来</span>' +
         '<h3>你处在：<b>' + stage + '</b></h3><p class="wz-verdict">' + verdict + '</p></div>' +
         kvs(nums) +
+        '<div class="note-card">🔢 <b>你填的 N = ' + n + ' —— 这个数填对了吗？</b>「见过面」和「进入候选序列」是两回事：把 50 个相亲对象全算进去，观察期会变成前 18 个，而你的真候选可能只有 5 个，你会永远走不出观察期。<a href="' + BASE_HREF + 'love-count/">去算我的 N：什么才算「见过一个人」 →</a></div>' +
         sec('按你的条件，接下来做什么（按划算程度排序）', acts(todo)) +
         sec('🚩 别踩的坑', '<ul class="wz-list plain"><li>37% 是<b>结构参考</b>，不是操作指令——它的三条前提（N 已知、不可回头、只能相对比较）现实中一条都不严格成立。</li>' +
           '<li>最优停止最大化的是「选中最好的那个」的概率，<b>不是「在一起之后过得好」的概率</b>。这两个目标会冲突。</li>' +
@@ -1409,6 +1412,13 @@ python3 build_report.py                 # 重新生成本页数据</code></pre>
           ns.map(function (n) { return '第 ' + n + ' 关'; }).join('、') + ' →</a>';
         var vd = c.querySelector('.vd');
         if (vd && vd.nextSibling) c.insertBefore(p, vd.nextSibling); else c.appendChild(p);
+        // 模型 1 额外挂一个「N 怎么数」的入口——这是 37% 里唯一要自己填、也最容易填错的数
+        if (k === 'stop') {
+          var q = document.createElement('p');
+          q.className = 'm-quest m-count';
+          q.innerHTML = '<a href="' + B + 'love-count/">🔢 N 到底怎么数：什么算「见过一个人」 →</a>';
+          if (vd && vd.nextSibling) c.insertBefore(q, vd.nextSibling); else c.appendChild(q);
+        }
       });
     })();
 

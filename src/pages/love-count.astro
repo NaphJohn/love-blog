@@ -1,0 +1,589 @@
+---
+import SiteHeader from '../components/SiteHeader.astro';
+const base = import.meta.env.BASE_URL;
+
+// ═══════════════════════════════════════════════════════════
+// 「我到底见了多少人」——37% 法则里唯一必须自己填、也最容易填错的数。
+// 核心结论：n 是「前瞻的搜索窗口容量」，不是「你见过多少人」。
+// ═══════════════════════════════════════════════════════════
+
+const counts = [
+  { yes: '单对单见过面', d: '线下 1v1：咖啡、吃饭、散步都算。你能在心里给他排个序——比前面那几个好，还是差。' },
+  { yes: '见完你真的评估过', d: '不是"见过"，是"考虑过"。哪怕结论是"不行"，只要你在拿他跟别人比，就算一次观察。' },
+  { yes: '同一段人生阶段', d: '你对伴侣的需求这几年基本没变。跨了五年的人不能放进同一个 n——你的尺子换了。' },
+  { yes: '你还在同一条渠道上', d: '都来自相亲，或都来自约会产品，或都来自朋友介绍。同一把尺子才可比。' },
+];
+const nos = [
+  { no: '群里 / 聚会上打过照面', d: '没有可比较的信号。你没法给一次"照面"排 rank，37% 要的正是 rank。' },
+  { no: '只在软件上聊过、没见面', d: '文字形象 ≠ 真人。见了面之后你的判断常常翻转，那次聊天不构成一次观察。' },
+  { no: '明确不是候选的人', d: '同事、客户、朋友的朋友——你从头就没在评估，不算。' },
+  { no: '五年前见过的人', d: '你对伴侣的需求、你自己的条件都变了。跨批次的人混在一起，n 会虚高。' },
+];
+const maybes = [
+  { m: '相亲见过一面就明确不合适', d: '算进「校准样本」，不算进 n。它帮你修正了标准（比如"原来我真的接受不了抽烟"），但它不是候选序列里的一格。' },
+  { m: '同时聊着好几个人', d: '这直接破坏了 37% 的前提——模型假设人是<b>排队来的</b>。并行推进时你其实在做「带阈值的筛选」，应该用模型 9（条件相乘），不是 37%。' },
+  { m: '见了但对方没给任何反馈', d: '如果你连"他对我有没有意思"都不知道，这次观察的信息量接近 0，可以不计。' },
+];
+---
+
+<SiteHeader lang="zh" series="心动解码" />
+<main class="lc">
+  <p class="kicker">✦ 模型 1 配套 · 你怎么数「见过多少人」</p>
+  <h1>我的 N 是多少：见了多少人，现在该看还是该定</h1>
+  <p class="meta">37% 法则只有一个数需要你自己填 —— <b>N</b>。而这个数几乎所有人都会填错：把它当成「我这辈子见过多少人」。
+    这一页专门解决三件事：<b>什么算一个人</b>、<b>相亲 50 人起步该怎么算</b>、<b>记不清了要不要从头开始</b>。</p>
+
+  <script is:inline>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- ══ 一句话结论 ══ -->
+  <div class="hero">
+    <div class="hero-kicker">先记住这一句</div>
+    <div class="hero-main">N 是<b>你还能遇到多少个「你会认真考虑的人」</b>，<br>不是你已经见过多少人。</div>
+    <div class="hero-sub">它是<b>朝前看</b>的窗口容量，不是<b>朝后看</b>的经历计数。过去的数据只用来估一个东西：你每个月能遇到几个。</div>
+  </div>
+
+  <!-- ══ ① 什么算 ══ -->
+  <h2 class="sub-h">① 什么算「一个人」，什么不算</h2>
+  <p class="plain">判据只有一条：<b>这次接触之后，你能不能把他放进"比前面那几个好还是差"的排序里？</b>能 → 算一次观察；不能 → 不算。</p>
+  <div class="rule">
+    <div class="rule-col rule-yes">
+      <h3>✅ 算</h3>
+      {counts.map((c) => (
+        <div class="rule-item"><b>{c.yes}</b><p>{c.d}</p></div>
+      ))}
+    </div>
+    <div class="rule-col rule-no">
+      <h3>❌ 不算</h3>
+      {nos.map((c) => (
+        <div class="rule-item"><b>{c.no}</b><p>{c.d}</p></div>
+      ))}
+    </div>
+  </div>
+  <div class="rule-maybe">
+    <h3>⚠️ 看情况（这三条最容易填错）</h3>
+    {maybes.map((c) => (
+      <div class="rule-item"><b>{c.m}</b><p set:html={c.d}></p></div>
+    ))}
+  </div>
+
+  <!-- ══ ② 相亲 vs 约会 ══ -->
+  <h2 class="sub-h">② 相亲算，还是约会算？</h2>
+  <p class="plain"><b>都算，但不能混在同一个 N 里。</b>原因是两者的「尺子」不一样：</p>
+  <div class="cmp">
+    <div class="cmp-col">
+      <h4>相亲</h4>
+      <p><b>条件先行</b>：你带着一张清单去（年龄、学历、同城、房车、婚史……），先筛条件再看人。</p>
+      <p class="cmp-tag">它天然属于<b>「筛选」</b>——对应模型 9（条件相乘）。</p>
+    </div>
+    <div class="cmp-col">
+      <h4>约会 / 认识</h4>
+      <p><b>体验先行</b>：你没有硬条件，靠相处判断，「见到好的我认得出来」。</p>
+      <p class="cmp-tag">它才属于<b>「最优停止」</b>——对应模型 1 的 37%。</p>
+    </div>
+  </div>
+  <div class="note-card">💡 <b>实操建议：</b>只算你<b>当前主力渠道</b>的那一条线。如果你七成的人来自相亲，就只数相亲那条线；
+    两条线并行且比例接近，就<b>各算各的 N</b>，别加总——加总出来的 N 对应的观察期，两头都不适用。</div>
+
+  <!-- ══ ③ 50 人起步 ══ -->
+  <h2 class="sub-h">③ 相亲动辄 50 人起步，那 N 就是 50 吗？</h2>
+  <p class="plain">这是这一页最要紧的一段。<b>「见过面」和「进入候选序列」是两件事。</b>
+    50 个人里，你真正愿意再见第二次的可能只有 5–10 个。这两个数算出来的观察期差得非常远：</p>
+  <div class="cmp2">
+    <div class="c2 bad">
+      <div class="c2-h">❌ 按「见过面」算 N</div>
+      <p>50 人 / 6 个月 = 8.33 人/月。打算再找 24 个月 → N = <b>200</b>，观察期 = 前 <b>74</b> 个。</p>
+      <p>可你真正会认真考虑的只有 1.33 人/月 —— 你会<b>永远待在观察期里</b>，见到好的也不敢定。这就是「相亲把自己相麻了」的数学原因。</p>
+    </div>
+    <div class="c2 good">
+      <div class="c2-h">✅ 按「愿意见第二次」算 N</div>
+      <p>8 人 / 6 个月 = 1.33 人/月。同样 24 个月 → N = <b>32</b>，观察期 = 前 <b>12</b> 个。</p>
+      <p>第 13 个开始，遇到比前 12 个都好的就定。<b>这才是可执行的一条线。</b></p>
+    </div>
+  </div>
+  <div class="note-card">
+    🔀 <b>更根本的分岔：你到底该用 37%，还是该用筛子？</b><br>
+    · 如果你<b>有明确的硬条件</b>（必须同城 / 不接受抽烟 / 学历门槛……）→ 你在做<b>筛选</b>，用<b>模型 9</b>：把清单上每条按「放开这条能多多少人」排序，先松收益最大的那条（比如「有眼缘」「聊得来」各放开 20 倍，0.45% → 83.50%）。<b>这时候不该用 37%。</b><br>
+    · 如果你<b>没有硬条件、只能靠比较</b>（"我不知道我要什么，但好的我认得出来"）→ 才用 <b>37%</b>，且 N = 你会认真考虑的人数。<br>
+    · 那 42 个被你淘汰的人不是白见——<b>它们的作用是把你的标准校准清楚</b>，让你从"靠感觉"变成"有硬条件"。一旦你有了硬条件，你就该换模型了。
+  </div>
+
+  <!-- ══ ④ 记不清 ══ -->
+  <h2 class="sub-h">④ 记不清见过多少人了 —— 从今天开始算吗？</h2>
+  <p class="plain"><b>是的，从今天开始算。而且这本来就是正确做法，不是将就。</b>两个理由：</p>
+  <div class="reasons">
+    <div class="reason"><span class="rs-no">1</span><div><b>观察期的作用是校准，不是凑数。</b>37% 法则要求你在观察期里记住「目前为止最好的是什么水平」。你记不清的那些人，那个 rank 信号已经丢了——硬凑一个数字只会让你更错，不会让你更准。</div></div>
+    <div class="reason"><span class="rs-no">2</span><div><b>N 本来就是前瞻量。</b>它是「你还能遇到几个」，不是「你遇到过几个」。过去唯一有用的地方，是拿来估你的<b>速率</b>——每个月能遇到几个合格的。</div></div>
+  </div>
+  <div class="formula">
+    <div class="fm-line">N ＝ 你打算再找多久（月） × 你每月能遇到几个「愿意再见第二次」的人</div>
+    <div class="fm-note">速率怎么估：回头看最近 <b>6 个月</b>（再往前记不清就算了），单对单见过几个人？其中<b>有几个你愿意见第二次</b>？除以 6 就是月速率。</div>
+  </div>
+
+  <!-- ══ ⑤ 估算器 ══ -->
+  <h2 class="sub-h">⑤ 算一下我的 N</h2>
+  <div class="calc">
+    <div class="cl-row">
+      <label class="cl-lab">打算再找多久</label>
+      <div class="seg" id="c-months">
+        <button type="button" data-v="6">6 个月</button>
+        <button type="button" data-v="12" class="on">12 个月</button>
+        <button type="button" data-v="24">24 个月</button>
+        <button type="button" data-v="36">36 个月</button>
+      </div>
+    </div>
+    <div class="cl-row">
+      <label class="cl-lab">最近 6 个月，单对单见过几个人<br><small>见过面就行，包括一面就否掉的</small></label>
+      <input class="cl-in" id="c-seen" type="number" min="0" max="200" value="12" />
+    </div>
+    <div class="cl-row">
+      <label class="cl-lab">其中，有几个你愿意见第二次<br><small>这才是进入候选序列的人</small></label>
+      <input class="cl-in" id="c-yes" type="number" min="0" max="200" value="3" />
+    </div>
+    <div class="cl-row">
+      <label class="cl-lab">你已经在同一个人生阶段走了几个月<br><small>换过尺子就别把以前的人算进来</small></label>
+      <input class="cl-in" id="c-past" type="number" min="0" max="600" value="8" />
+      <span class="cl-unit">个月（≥12 会提示观察期可缩短）</span>
+    </div>
+    <div class="acts">
+      <button class="btn" id="c-go" type="button">算我的 N →</button>
+    </div>
+    <div class="res" id="c-out" hidden></div>
+  </div>
+
+  <!-- ══ ⑥ 计数器 ══ -->
+  <h2 class="sub-h">⑥ 从今天开始记：我现在第几个了？</h2>
+  <p class="plain">从这一刻起，每单对单见一次就记一条。<b>数据只存在你自己的浏览器里</b>（localStorage），不会上传。
+    记满几条之后，下面会自动告诉你：你现在第几个、观察期到哪儿结束、当前最好的是第几号、以及你有没有走到该出手的位置。</p>
+  <div class="counter">
+    <div class="ct-form">
+      <input class="ct-in" id="k-date" type="date" />
+      <select class="ct-sel" id="k-ch">
+        <option value="相亲">相亲</option>
+        <option value="约会产品">约会产品</option>
+        <option value="朋友介绍">朋友介绍</option>
+        <option value="日常认识">日常认识</option>
+      </select>
+      <select class="ct-sel" id="k-again">
+        <option value="1">愿意见第二次</option>
+        <option value="0">不想再见</option>
+      </select>
+      <input class="ct-in ct-score" id="k-score" type="number" min="1" max="10" value="5" title="综合评分 1–10" />
+      <button class="btn btn-sm" id="k-add" type="button">记一条</button>
+    </div>
+    <div class="ct-hint">评分是你自己的尺子：1–10，越高越接近「比之前都好」。标准不用跟别人一样，<b>前后一致就行</b>。</div>
+    <div class="ct-status" id="k-status"></div>
+    <div class="ct-list" id="k-list"></div>
+    <div class="acts">
+      <button class="btn ghost btn-sm" id="k-clear" type="button">清空记录</button>
+    </div>
+  </div>
+
+  <!-- ══ ⑦ 估不出来 ══ -->
+  <h2 class="sub-h">⑦ 如果 N 我根本估不出来呢？</h2>
+  <p class="plain">那就<b>别硬用 37%</b>。「N 已知」是模型 1 三条前提里最脆弱的一条，估不准的时候硬套，得到一个看着精确、实则随机的数字，比不用更糟。三条退路：</p>
+  <div class="alt">
+    <div class="alt-item"><h4>A · 换成「时间版 37%」</h4><p>把 N 换成时间：如果你打算找 24 个月，前 <b>9 个月</b>只观察不定，之后遇到比之前都好的就定。它绕开了「我到底会遇到几个人」，只需要一个期限。<span class="alt-tag">需要：一个期限</span></p></div>
+    <div class="alt-item"><h4>B · 改用模型 5：出击门槛</h4><p>规则是「<b>P(回应) × 收益 &gt; 代价</b> 就出手」。它<b>完全不需要知道 N</b>。10 条消息怎么分？全给高 1.09σ 的那批人，别追塔尖。<span class="alt-tag">完全不需要 N</span></p></div>
+    <div class="alt-item"><h4>C · 改用模型 9：删条件</h4><p>如果你卡住是因为「一个合适的都没有」，问题多半不在 N，在清单。把「有眼缘」「聊得来」这类感觉条件删掉——放开各 20 倍，命中率 0.45% → <b>83.50%</b>。<span class="alt-tag">治的是清单不是数量</span></p></div>
+  </div>
+
+  <div class="warn-box">
+    ⚠️ <b>三条前提，现实中一条都不完全成立：</b>① <b>N 已知</b>——你只能估；② <b>不可回头</b>——很多时候前面的人还在，能回头的话跳过并不致命，观察期可以缩短；③ <b>只能相对比较</b>——多数人其实有硬条件，那个场景该用筛选不是最优停止。
+    所以 37% 是<b>结构参考</b>不是操作指令。修正方向：能回头 → 观察期缩短；会被别人先锁定 → 观察期提前；N 未知 → 用上面的时间版。
+  </div>
+
+  <section class="engage">
+    <p class="engage-tip">算完 N，回到模型页看完整推导 👇</p>
+    <p class="engage-links">
+      <a href={`${base}love-math/`} class="lnk">⏳ 模型 1：最优停止 →</a>
+      <a href={`${base}love-quest/`} class="lnk">🎮 爱情八关：第 2 关「怎么找最爱」 →</a>
+      <a href={`${base}love-personality/`} class="lnk">🧬 四型人格测试 →</a>
+    </p>
+    <div class="reward">
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/alipay.png`} alt="支付宝收款码" loading="lazy" /></div>
+        <p>支付宝</p>
+      </div>
+      <div class="reward-col">
+        <div class="reward-qr"><img src={`${base}reward/wechat.png`} alt="微信收款码" loading="lazy" /></div>
+        <p>微信</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot-note">⚠️ 本页是《爱情数学》模型 1（最优停止）的使用说明，不是心理或婚恋咨询。
+    页面里所有<b>绝对数字</b>（几个月、几个人的观察期）都由你填的参数算出，参数变一个，结论就变——
+    <b>真正属于你的输入只有两个：你的速率，和你的期限。</b>数据保存在你自己浏览器的 localStorage 里，清缓存会丢。</p>
+</main>
+
+<script type="application/json" id="lc-data" set:html={JSON.stringify({ base, invE: 1 / Math.E })}></script>
+
+<script is:inline>
+  (function () {
+    var CFG = JSON.parse(document.getElementById('lc-data').textContent);
+    var LS_N = 'love-count-n-v1';
+    var LS_K = 'love-count-log-v1';
+    var log = [];
+    var curN = 0;          // 由估算器算出的 N（观察期用）
+    var months = 12;
+
+    function saveN(v) { try { localStorage.setItem(LS_N, String(v)); } catch (e) {} }
+    function saveLog() { try { localStorage.setItem(LS_K, JSON.stringify(log)); } catch (e) {} }
+    function loadAll() {
+      try { curN = parseInt(localStorage.getItem(LS_N) || '0', 10) || 0; } catch (e) {}
+      try { var s = JSON.parse(localStorage.getItem(LS_K) || '[]'); if (Array.isArray(s)) log = s; } catch (e) {}
+    }
+    loadAll();
+
+    // ── 估算器 ──
+    var seg = document.getElementById('c-months');
+    seg.querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        seg.querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        months = parseInt(b.getAttribute('data-v'), 10);
+      });
+    });
+
+    function num(id, def) {
+      var v = parseInt(document.getElementById(id).value, 10);
+      return isNaN(v) || v < 0 ? def : v;
+    }
+
+    function calc() {
+      var seen = num('c-seen', 0);
+      var yes = num('c-yes', 0);
+      if (yes > seen) { yes = seen; document.getElementById('c-yes').value = yes; }
+      var past = num('c-past', 0);
+      var rate = yes / 6;                       // 每月「愿意见第二次」的人数
+      var n = Math.round(rate * months);
+      var k = Math.round(n * CFG.invE);         // 观察期：前 37%
+      var rateAll = seen / 6;
+      var nAll = Math.round(rateAll * months);
+      var kAll = Math.round(nAll * CFG.invE);
+
+      var html = '<h3 class="res-h">你的 N 与观察期</h3>';
+      html += '<div class="kv-wrap">' +
+        kv('月速率（愿意见第二次）', (Math.round(rate * 100) / 100) + ' 人/月') +
+        kv('你的搜索窗口', months + ' 个月') +
+        kv('<b>你的 N</b>', '<b>' + n + '</b> 人') +
+        kv('<b>观察期</b>', '<b>前 ' + k + ' 个</b> 只看不选') +
+        kv('决策期从', '第 ' + (k + 1) + ' 个开始') +
+        kv('执行后选中最好者的概率', '约 ' + (Math.round(CFG.invE * 1000) / 10) + '%') +
+        '</div>';
+
+      if (nAll > n && nAll >= 3) {
+        html += '<div class="note-card">📌 <b>对比一下，你就知道为什么不能把「见过面」全算进去：</b>' +
+          '如果你按「见过面」算，N = <b>' + nAll + '</b>，观察期要前 <b>' + kAll + '</b> 个；' +
+          '而按「愿意见第二次」算，N = <b>' + n + '</b>，观察期只有前 <b>' + k + '</b> 个。' +
+          '按前者执行，你会在观察期里走不出来——见到的候选人还没到 ' + kAll + ' 个，这条路就已经结束了。</div>';
+      }
+      if (past >= 12 && k >= 3) {
+        html += '<div class="note-card">📏 <b>你已经在这一阶段走了 ' + past + ' 个月 —— 观察期可以再缩短。</b>' +
+          '观察期的任务是建立「目前最好的是什么水平」这把尺子。如果你从过去那些人里<b>已经能清楚说出这条线在哪</b>，' +
+          '这个任务你已经完成了，不必真的看完前 ' + k + ' 个才动手。<b>尺子已经有的，就从决策期开始。</b></div>';
+      }
+      if (n <= 2) {
+        html += '<div class="warn-inline">⚠️ <b>你的 N 只有 ' + n + '，太小了，37% 在这里基本失效。</b>' +
+          'N ≤ 2 时最优停止给不出有意义的观察期。' +
+          '这时候<b>先做模型 9</b>（把清单上不筛人的条件删掉，把 N 本身做大），比纠结什么时候定下来有用得多。</div>';
+      } else if (n <= 6) {
+        html += '<div class="warn-inline">⚠️ <b>N 偏小（' + n + '）。</b>小 N 下最优停止的容错很低——' +
+          '跳过观察期还能保住峰值的 98%，但多跳一个就掉得很快。' +
+          '建议：观察期取 <b>' + k + '</b> 或<b>更短</b>，别往长了偏。</div>';
+      }
+
+      html += '<div class="note-card">🎯 <b>怎么执行：</b>前 <b>' + k + '</b> 个只观察、不承诺，但<b>必须记分</b>（记住"目前最好的是什么水平"）；' +
+        '从第 <b>' + (k + 1) + '</b> 个开始，遇到<b>第一个超过前面所有人的</b>就定下来，不再往后看。' +
+        '如果一路到第 ' + n + ' 个都没出现更好的 —— 按规则，最后一个就是你的选择；这也是这套规则最反直觉、也最容易被骂的地方。</div>';
+
+      var el = document.getElementById('c-out');
+      el.innerHTML = html;
+      el.hidden = false;
+      curN = n;
+      saveN(n);
+      renderCounter();
+    }
+    function kv(k, v) {
+      return '<div class="kv"><span>' + k + '</span><b>' + v + '</b></div>';
+    }
+    document.getElementById('c-go').addEventListener('click', calc);
+
+    // ── 计数器 ──
+    var today = new Date();
+    var pad = function (x) { return x < 10 ? '0' + x : '' + x; };
+    document.getElementById('k-date').value = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+
+    function best() {
+      var b = null;
+      log.forEach(function (r, i) { if (!b || r.s > b.s) b = { i: i + 1, s: r.s, r: r }; });
+      return b;
+    }
+
+    function renderCounter() {
+      var n = curN;
+      var k = n ? Math.round(n * CFG.invE) : 0;
+      var cnt = log.length;
+      var st = document.getElementById('k-status');
+      var list = document.getElementById('k-list');
+
+      if (!n) {
+        st.innerHTML = '<div class="cs-empty">先在上面<b>算一下你的 N</b>，这里才会显示"你现在第几个、观察期到哪儿结束"。</div>';
+      } else if (!cnt) {
+        st.innerHTML = '<div class="cs-empty">N = <b>' + n + '</b>，观察期 = 前 <b>' + k + '</b> 个。还没记过任何一条 —— 从今天这次开始。</div>';
+      } else {
+        var b = best();
+        var considered = log.filter(function (r) { return r.y === 1; }).length;
+        var inObs = cnt <= k;
+        var last = log[cnt - 1];
+        var signal = !inObs && b && last.s === b.s && cnt > k;
+        st.innerHTML =
+          '<div class="cs-grid">' +
+          '<div class="cs-k"><span>已记</span><b>' + cnt + '</b><small>条 · 其中 ' + considered + ' 条愿意见第二次</small></div>' +
+          '<div class="cs-k"><span>观察期</span><b>前 ' + k + ' 个</b><small>' + (inObs ? '还差 ' + (k - cnt + 1) + ' 个走完' : '已走完') + '</small></div>' +
+          '<div class="cs-k"><span>当前最佳</span><b>第 ' + b.i + ' 号</b><small>评分 ' + b.s + ' / 10</small></div>' +
+          '<div class="cs-k"><span>当前阶段</span><b class="' + (inObs ? 'ph-obs' : 'ph-act') + '">' + (inObs ? '观察期' : '决策期') + '</b><small>' + (inObs ? '只看不选，但一定记分' : '遇到超过 ' + b.s + ' 分的就定') + '</small></div>' +
+          '</div>' +
+          '<div class="cs-msg ' + (signal ? 'cs-hit' : (inObs ? 'cs-obs' : 'cs-act')) + '">' +
+          (inObs
+            ? '⏳ <b>还在观察期（第 ' + cnt + ' / ' + k + '）。</b>这一段的任务只有一个：把「目前最好的是什么水平」记清楚。不要承诺，但也别敷衍——你后面所有的判断都要拿它当尺子。'
+            : (signal
+              ? '🎯 <b>信号出现了。</b>第 ' + cnt + ' 号（' + last.s + ' 分）超过了你之前所有人的最高分 ' + b.s + ' 分 —— 按 37% 规则，<b>这就是那个该定下来的人</b>。再往后看，选中最好者的概率只会更低。'
+              : '✅ <b>已进入决策期。</b>第 ' + cnt + ' 号 ' + last.s + ' 分，没有超过当前最佳的 ' + b.s + ' 分 —— 按规则继续。' +
+                (cnt >= n ? '　⚠️ 你已经到第 ' + n + ' 个（N 的上限）了：规则说最后一个就是选择，但这条最反直觉，把它当参考而不是命令。' : ''))
+          ) + '</div>';
+      }
+
+      if (!cnt) { list.innerHTML = ''; return; }
+      var k2 = n ? Math.round(n * CFG.invE) : 0;
+      var b2 = best();
+      list.innerHTML = '<div class="ct-head"><span>#</span><span>日期</span><span>渠道</span><span>再见?</span><span>评分</span><span></span></div>' +
+        log.map(function (r, i) {
+          var no = i + 1;
+          var isBest = b2 && no === b2.i;
+          var phase = !k2 ? '' : (no <= k2 ? 'p-obs' : 'p-act');
+          return '<div class="ct-row ' + phase + (isBest ? ' ct-best' : '') + '">' +
+            '<span class="ct-no">' + no + '</span>' +
+            '<span>' + r.d + '</span>' +
+            '<span>' + r.ch + '</span>' +
+            '<span>' + (r.y === 1 ? '愿意' : '否') + '</span>' +
+            '<span class="ct-s">' + r.s + (isBest ? ' ★' : '') + '</span>' +
+            '<span><button class="ct-del" type="button" data-i="' + i + '">删</button></span>' +
+            '</div>';
+        }).join('');
+      list.querySelectorAll('.ct-del').forEach(function (b) {
+        b.addEventListener('click', function () {
+          log.splice(parseInt(b.getAttribute('data-i'), 10), 1);
+          saveLog(); renderCounter();
+        });
+      });
+    }
+
+    document.getElementById('k-add').addEventListener('click', function () {
+      var d = document.getElementById('k-date').value || '';
+      var ch = document.getElementById('k-ch').value;
+      var y = parseInt(document.getElementById('k-again').value, 10);
+      var s = parseInt(document.getElementById('k-score').value, 10);
+      if (isNaN(s) || s < 1) s = 1; if (s > 10) s = 10;
+      log.push({ d: d, ch: ch, y: y, s: s });
+      saveLog(); renderCounter();
+    });
+    document.getElementById('k-clear').addEventListener('click', function () {
+      if (!log.length) return;
+      if (!window.confirm('清空全部 ' + log.length + ' 条记录？此操作不可撤销。')) return;
+      log = []; saveLog(); renderCounter();
+    });
+
+    renderCounter();
+    if (curN) calc();
+  })();
+</script>
+
+<style is:global>
+  :root { --bg-url: url('/love-blog/24solar-bg.png'); }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: var(--bg-url); background-size: cover; background-position: center top;
+    background-repeat: no-repeat; opacity: 0.13; z-index: -1; pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  :root[data-theme="dark"] body::before { opacity: 0.08; }
+</style>
+
+<style>
+  .lc { max-width: 880px; margin: 0 auto; padding: 36px 20px 64px; }
+  .kicker { color: var(--accent); letter-spacing: 2px; font-size: 13px; margin: 0 0 8px; }
+  .lc h1 { font-size: 28px; line-height: 1.4; margin: 0 0 8px; }
+  .meta { color: var(--muted); font-size: 13.5px; line-height: 1.8; margin: 0 0 22px; }
+  .sub-h { font-size: 19px; margin: 36px 0 10px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  .plain { font-size: 14.5px; line-height: 1.8; margin: 10px 0; }
+  .meta b, .plain b { color: var(--accent); }
+
+  .hero { border: 1px solid var(--accent); border-left: 6px solid var(--accent); border-radius: 0 14px 14px 0; padding: 18px 22px; background: rgba(224,69,123,0.06); }
+  .hero-kicker { font-size: 12px; color: var(--accent); letter-spacing: 2px; margin-bottom: 6px; }
+  .hero-main { font-size: 19px; font-weight: 700; line-height: 1.65; }
+  .hero-main b { color: var(--accent); }
+  .hero-sub { font-size: 13.5px; line-height: 1.8; color: var(--muted); margin-top: 8px; }
+  .hero-sub b { color: var(--accent); }
+
+  .rule { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .rule-col { border: 1px solid var(--border); border-radius: 12px; padding: 13px 16px; background: var(--bg); }
+  .rule-col h3 { margin: 0 0 10px; font-size: 15px; }
+  .rule-yes { border-top: 4px solid #16a34a; }
+  .rule-yes h3 { color: #15803d; }
+  .rule-no { border-top: 4px solid #dc2626; }
+  .rule-no h3 { color: #dc2626; }
+  :root[data-theme="dark"] .rule-yes h3 { color: #4ade80; }
+  :root[data-theme="dark"] .rule-no h3 { color: #f87171; }
+  .rule-item { padding: 8px 0; border-top: 1px dashed var(--border); }
+  .rule-item:first-of-type { border-top: none; }
+  .rule-item b { font-size: 13.5px; }
+  .rule-item p { margin: 3px 0 0; font-size: 13px; line-height: 1.7; color: var(--muted); }
+  .rule-maybe { border: 1px solid #d97706; border-radius: 12px; padding: 13px 16px; background: rgba(217,119,6,0.05); }
+  .rule-maybe h3 { margin: 0 0 8px; font-size: 15px; color: #b45309; }
+  :root[data-theme="dark"] .rule-maybe h3 { color: #fbbf24; }
+  .rule-maybe .rule-item b { color: #b45309; }
+  :root[data-theme="dark"] .rule-maybe .rule-item b { color: #fbbf24; }
+
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .cmp-col { border: 1px solid var(--border); border-radius: 12px; padding: 13px 16px; background: var(--bg); }
+  .cmp-col h4 { margin: 0 0 6px; font-size: 15.5px; }
+  .cmp-col p { margin: 5px 0; font-size: 13.5px; line-height: 1.75; }
+  .cmp-tag { color: var(--muted); font-size: 13px !important; }
+  .cmp-tag b { color: var(--accent); }
+
+  .cmp2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .c2 { border: 1px solid var(--border); border-radius: 12px; padding: 14px 17px; background: var(--bg); }
+  .c2-h { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+  .c2 p { margin: 6px 0; font-size: 13.5px; line-height: 1.75; }
+  .c2.bad { border-left: 4px solid #dc2626; background: rgba(220,38,38,0.05); }
+  .c2.bad .c2-h { color: #dc2626; }
+  .c2.good { border-left: 4px solid #16a34a; background: rgba(22,163,74,0.06); }
+  .c2.good .c2-h { color: #15803d; }
+  :root[data-theme="dark"] .c2.bad .c2-h { color: #f87171; }
+  :root[data-theme="dark"] .c2.good .c2-h { color: #4ade80; }
+
+  .note-card { background: var(--code-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 12px 0; font-size: 13.5px; line-height: 1.85; }
+  .note-card b { color: var(--accent); }
+  .note-card a { color: var(--accent); }
+
+  .reasons { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+  .reason { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; background: var(--bg); font-size: 13.5px; line-height: 1.8; }
+  .rs-no { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+  .reason b { color: var(--accent); }
+
+  .formula { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 12px 12px 0; padding: 14px 18px; background: var(--code-bg); margin: 12px 0; }
+  .fm-line { font-size: 16px; font-weight: 700; line-height: 1.7; text-align: center; }
+  .fm-note { font-size: 13px; color: var(--muted); line-height: 1.75; margin-top: 8px; }
+  .fm-note b { color: var(--accent); }
+
+  .calc { border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; background: var(--bg); }
+  .cl-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px dashed var(--border); }
+  .cl-row:last-of-type { border-bottom: none; }
+  .cl-lab { flex: 1 1 260px; font-size: 13.5px; line-height: 1.6; }
+  .cl-lab small { color: var(--muted); font-size: 12px; }
+  .cl-in { width: 96px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); font-size: 14px; }
+  .cl-unit { font-size: 12px; color: var(--muted); }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--muted); font-size: 13px; cursor: pointer; transition: .15s; }
+  .seg button:hover { border-color: var(--accent); color: var(--accent); }
+  .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  .acts { display: flex; gap: 10px; margin-top: 14px; }
+  .btn { padding: 9px 22px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font-size: 14.5px; cursor: pointer; transition: .15s; }
+  .btn:hover:not(:disabled) { opacity: .9; }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  .btn-sm { padding: 6px 16px; font-size: 13px; }
+  #c-go { margin-left: auto; }
+
+  .res { margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 16px; }
+  .res-h { font-size: 18px; margin: 0 0 12px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  .kv-wrap { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .kv { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px; background: var(--bg); }
+  .kv span { font-size: 13px; color: var(--muted); }
+  .kv b { font-size: 15px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .warn-inline { background: rgba(217,119,6,0.08); border-left: 4px solid #d97706; border-radius: 0 10px 10px 0; padding: 11px 15px; font-size: 13px; line-height: 1.8; margin-top: 12px; }
+  .warn-inline b { color: #b45309; }
+  :root[data-theme="dark"] .warn-inline b { color: #fbbf24; }
+
+  .counter { border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; background: var(--bg); }
+  .ct-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .ct-in, .ct-sel { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); font-size: 13px; }
+  .ct-score { width: 68px; }
+  .ct-hint { font-size: 12.5px; color: var(--muted); line-height: 1.7; margin: 8px 0 12px; }
+  .ct-hint b { color: var(--accent); }
+  .ct-status { margin-bottom: 12px; }
+  .cs-empty { border: 1px dashed var(--border); border-radius: 10px; padding: 12px 15px; font-size: 13.5px; color: var(--muted); line-height: 1.75; }
+  .cs-empty b { color: var(--accent); }
+  .cs-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+  .cs-k { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: var(--bg); text-align: center; }
+  .cs-k span { display: block; font-size: 11.5px; color: var(--muted); }
+  .cs-k b { display: block; font-size: 17px; margin: 2px 0 1px; font-variant-numeric: tabular-nums; }
+  .cs-k small { display: block; font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .ph-obs { color: #b45309; }
+  .ph-act { color: #15803d; }
+  :root[data-theme="dark"] .ph-obs { color: #fbbf24; }
+  :root[data-theme="dark"] .ph-act { color: #4ade80; }
+  .cs-msg { border-radius: 0 10px 10px 0; padding: 12px 16px; font-size: 13.5px; line-height: 1.85; border-left: 4px solid var(--border); }
+  .cs-obs { background: rgba(217,119,6,0.08); border-left-color: #d97706; }
+  .cs-act { background: rgba(22,163,74,0.07); border-left-color: #16a34a; }
+  .cs-hit { background: rgba(224,69,123,0.10); border-left-color: var(--accent); }
+  .cs-msg b { color: var(--accent); }
+  .cs-act b, .cs-hit b { color: inherit; }
+
+  .ct-list { display: flex; flex-direction: column; gap: 4px; }
+  .ct-head, .ct-row { display: grid; grid-template-columns: 40px 100px 1fr 66px 60px 40px; gap: 6px; align-items: center; font-size: 12.5px; }
+  .ct-head { color: var(--muted); font-size: 11.5px; padding: 0 8px 4px; }
+  .ct-row { border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px; background: var(--bg); }
+  .ct-row.p-obs { border-left: 3px solid #d97706; }
+  .ct-row.p-act { border-left: 3px solid #16a34a; }
+  .ct-row.ct-best { background: rgba(224,69,123,0.08); }
+  .ct-no { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ct-s { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ct-del { padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); font-size: 11.5px; cursor: pointer; }
+  .ct-del:hover { border-color: #dc2626; color: #dc2626; }
+
+  .alt { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+  .alt-item { border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; background: var(--bg); }
+  .alt-item h4 { margin: 0 0 5px; font-size: 15px; }
+  .alt-item p { margin: 0; font-size: 13.5px; line-height: 1.8; }
+  .alt-item b { color: var(--accent); }
+  .alt-tag { display: inline-block; margin-left: 6px; font-size: 11.5px; padding: 1px 9px; border-radius: 999px; background: var(--code-bg); color: var(--muted); }
+
+  .warn-box { background: rgba(217,119,6,0.08); border: 1px solid #d97706; border-left: 4px solid #d97706; border-radius: 0 10px 10px 0; padding: 13px 17px; font-size: 13.5px; line-height: 1.85; margin: 16px 0; }
+  .warn-box b { color: #b45309; }
+  :root[data-theme="dark"] .warn-box b { color: #fbbf24; }
+
+  .engage { margin-top: 42px; padding-top: 26px; border-top: 1px solid var(--border); text-align: center; }
+  .engage-tip { font-size: 15px; margin: 0 0 10px; }
+  .engage-links { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 0 0 18px; }
+  .lnk { color: var(--accent); text-decoration: none; font-size: 14px; border: 1px dashed var(--accent); border-radius: 999px; padding: 6px 16px; }
+  .lnk:hover { background: var(--accent); color: #fff; }
+  .reward { display: flex; gap: 24px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .reward-col { text-align: center; }
+  .reward-qr { width: 120px; height: 120px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--code-bg); overflow: hidden; }
+  .reward-qr img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .reward-col p { margin: 8px 0 0; font-size: 14px; }
+  .foot-note { color: var(--muted); font-size: 12px; margin-top: 28px; text-align: center; line-height: 1.7; }
+  .foot-note b { color: var(--muted); }
+
+  @media (max-width: 720px) {
+    .rule, .cmp, .cmp2 { grid-template-columns: 1fr; }
+    .kv-wrap, .cs-grid { grid-template-columns: 1fr 1fr; }
+    .ct-head, .ct-row { grid-template-columns: 34px 88px 1fr 56px 52px 36px; font-size: 12px; }
+    .cl-in { width: 80px; }
+    #c-go { margin-left: 0; }
+    .acts { flex-wrap: wrap; }
+    .hero-main { font-size: 17px; }
+  }
+</style>
